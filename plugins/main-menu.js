@@ -46,9 +46,9 @@ let handler = async (m, { conn, usedPrefix: _p }) => {
       }
     }
 
-    menuText += `*‐ ダ mᥲძᥱ ᑲᥡ ʟᴇᴏ xᴢᴢsʏ ᴏғᴄ 👑*`
+    menuText += `> *‐ ダ mᥲძᥱ ᑲᥡ ʟᴇᴏ*`
 
-    await conn.sendMessage(m.chat, { react: { text: '✨️', key: m.key } })
+    await conn.sendMessage(m.chat, { react: { text: '❄️', key: m.key } })
 
     const localImagePath = join(process.cwd(), 'src', 'menu.jpg')
 
@@ -56,28 +56,21 @@ let handler = async (m, { conn, usedPrefix: _p }) => {
       {
         name: 'cta_url',
         buttonParamsJson: JSON.stringify({ 
-          display_text: '*❄️ ᴄᴀɴᴀʟ ᴏғɪᴄɪᴀʟ*', 
+          display_text: '*☃️ ᴄᴀɴᴀʟ ᴏғɪᴄɪᴀʟ*', 
           url: 'https://whatsapp.com/channel/0029VbBvZH5LNSa4ovSSbQ2N' 
         })
       },
       {
         name: 'cta_url',
         buttonParamsJson: JSON.stringify({ 
-          display_text: '* 🧋 ᴄᴏᴍᴜɴɪᴅᴀᴅ ᴏғɪᴄɪᴀʟ*', 
+          display_text: '*🌨️ ᴄᴏᴍᴜɴɪᴅᴀᴅ ᴏғɪᴄɪᴀʟ*', 
           url: 'https://chat.whatsapp.com/BXxWuamOOE4K9eKC623FIO' 
         })
       },
       {
         name: 'cta_url',
         buttonParamsJson: JSON.stringify({ 
-          display_text: '🎛️ ᴘᴀɴᴇʟ-ʜᴏsᴛ', 
-          url: 'https://panel.quintillisas.com' 
-        })
-      },
-      {
-        name: 'cta_url',
-        buttonParamsJson: JSON.stringify({ 
-          display_text: '📊 ᴅᴀsʜ-ʜᴏsᴛ', 
+          display_text: '*💻 ʜᴏsᴛɪɴɢ-ᴏғɪᴄɪᴀʟ*', 
           url: 'https://dash.quintillisas.com' 
         })
       },
@@ -104,7 +97,7 @@ let handler = async (m, { conn, usedPrefix: _p }) => {
     // === Crear mensaje interactivo ===
     const interactiveMessage = proto.Message.InteractiveMessage.fromObject({
       body: proto.Message.InteractiveMessage.Body.fromObject({ text: menuText }),
-      footer: proto.Message.InteractiveMessage.Footer.fromObject({ text: '> 𝐈𝐭𝐬𝐮𝐤𝐢 𝐍𝐚𝐤𝐚𝐧𝐨-𝐈𝐀 𝐯2 🌸' }),
+      footer: proto.Message.InteractiveMessage.Footer.fromObject({ text: '> ITՏᑌKI-ᑕᕼᗩᑎᐯ3 ฅ^•ﻌ•^ฅ' }),
       header,
       nativeFlowMessage: proto.Message.InteractiveMessage.NativeFlowMessage.fromObject({
         buttons: nativeButtons
