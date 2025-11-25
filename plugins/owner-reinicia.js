@@ -125,7 +125,7 @@ export async function sendReconnectionMessage(conn) {
       setTimeout(async () => {
         try {
           await conn.reply(
-            */info.chatId,
+            /*info.chatId,
             `> 🎄 *¡BOT EN LÍNEA!* 🎅
 
 > ✅ *Itsuki Nakano V3 reconectado exitosamente*
@@ -140,7 +140,7 @@ export async function sendReconnectionMessage(conn) {
 > 💾 Servicios: 🟢 Todos operativos
 
 > 🎅 *¡Itsuki V3 está listo para ayudarte de nuevo!*
-> 🎄 *¡Feliz Navidad!* 🎁`,/*
+> 🎄 *¡Feliz Navidad!* 🎁`,*/
             null
           )
           
