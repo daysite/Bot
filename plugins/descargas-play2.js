@@ -31,29 +31,27 @@ async function ytdl(url) {
 }    
 
 let handler = async (m, { conn, text, usedPrefix }) => {    
-  const ctxErr = (global.rcanalx || {})    
-  const ctxWarn = (global.rcanalw || {})    
-  const ctxOk = (global.rcanalr || {})    
-
   if (!text) {    
-    return conn.reply(m.chat, `    
-🌸📹 Itsuki Nakano - Descargar Video    
+    return conn.reply(m.chat, 
+`> 🎄 *¡NAVIDAD EN YOUTUBE!* 🎅
 
-📝 Uso:    
-• ${usedPrefix}play2 <nombre de la canción>    
+> 🎵 *DESCARGADOR DE VIDEOS DESDE YOUTUBE-PLAYS*
 
-💡 Ejemplo:    
-• ${usedPrefix}play2 spy x family opening    
+> ❌ *Uso incorrecto*
 
-🎯 Formato:    
-🎥 Video MP4 de alta calidad    
+> \`\`\`Debes proporcionar el nombre del video\`\`\`
 
-🍱 ¡Disfruta tus videos con Itsuki Nakano! 🌸    
-    `.trim(), m, ctxWarn)    
+> *Ejemplos navideños:*
+> • ${usedPrefix}play2 villancicos navideños
+> • ${usedPrefix}play2 canciones de navidad
+> • ${usedPrefix}play2 películas navideñas
+
+> 🎅 *¡Itsuki Nakano V3 descargará tu video!* 🎄`, m)    
   }    
 
   try {    
-    await conn.reply(m.chat, '*🔎🎬 Itsuki está buscando tu video*', m, ctxOk)    
+    await m.react('🎁')
+    await m.react('🕑')
 
     const searchResults = await yts(text)    
     if (!searchResults.videos.length) throw new Error('No se encontraron resultados')    
@@ -61,17 +59,19 @@ let handler = async (m, { conn, text, usedPrefix }) => {
     const video = searchResults.videos[0]    
     const { url, title, fuente } = await ytdl(video.url)    
 
-    const caption = `    
-🌸✨ ¡Itsuki Nakano trae tu video! ✨🌸    
-💖 *Título:* ${title}    
-⏱ *Duración:* ${video.timestamp}    
-👤 *Autor:* ${video.author.name}    
-🔗 *URL:* ${video.url}    
+    const caption = `> 🎄 *¡VIDEO DESCARGADO!* 🎅
 
-🌐 *API:* ${fuente}    
-🌷 ¡Disfruta y no olvides sonreír! 🌷    
-> 🍱 Gracias por elegirme para tus descargas     
-`.trim()    
+> 📹 *Información del Video*
+
+> 🏷️ *Título:* ${title}
+> ⏱️ *Duración:* ${video.timestamp}
+> 👤 *Autor:* ${video.author.name}
+> 🎬 *Formato:* MP4
+> 🎁 *Calidad:* Alta
+> 🌐 *Servidor:* ${fuente}
+
+> 🎅 *¡Disfruta tu contenido navideño!*
+> 🎄 *¡Feliz Navidad con Itsuki Nakano V3!* 🎁`
 
     const buffer = await fetch(url).then(res => res.buffer())    
 
@@ -80,15 +80,31 @@ let handler = async (m, { conn, text, usedPrefix }) => {
       {    
         video: buffer,    
         mimetype: 'video/mp4',    
-        fileName: `${title}.mp4`,    
+        fileName: `${title}_navidad.mp4`,    
         caption    
       },    
       { quoted: m }    
     )    
 
+    await m.react('✅')
+
   } catch (e) {    
-    console.error('❌ Error en play2:', e)    
-    await conn.reply(m.chat, `❌ Error: ${e.message}`, m, ctxErr)    
+    console.error('🎄 Error en play2:', e)    
+    await conn.reply(m.chat, 
+`> 🎄 *¡ERROR EN DESCARGA!* 🎅
+
+> ❌ *Error al descargar video*
+
+> 📝 *Detalles:* ${e.message}
+
+> 🔍 *Posibles soluciones:*
+> • Verifica el nombre del video
+> • Intenta con otro término de búsqueda
+> • El video podría no estar disponible
+
+> 🎅 *Itsuki V3 lo intentará de nuevo...*
+> 🎄 *¡No te rindas!* 🎁`, m)    
+    await m.react('❌')
   }    
 }    
 
@@ -96,5 +112,6 @@ handler.help = ['play2']
 handler.tags = ['downloader']    
 handler.command = ['play2']
 handler.group = true    
+// handler.register = false
 
 export default handler
