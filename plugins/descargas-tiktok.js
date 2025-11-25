@@ -28,7 +28,7 @@ const handler = async (m, { conn, text, usedPrefix, command }) => {
           return conn.reply(m.chat, `🎅 *¡ERROR NAVIDEÑO!*\n\n> ❌ No se pudo obtener el audio del video.\n> 🎄 ¡Itsuki V3 no encontró audio disponible! 🎁`, m)
         }
         
-        const caption = `🎄 *AUDIO NAVIDEÑO DE TIKTOK* 🎅
+        /*const caption = `🎄 *AUDIO NAVIDEÑO DE TIKTOK* 🎅
 
 > 🏷 *Título:*
 > \`\`\`${title || 'Audio de TikTok'}\`\`\`
@@ -40,7 +40,7 @@ const handler = async (m, { conn, text, usedPrefix, command }) => {
 > 🎶 *Audio original de:* ${author?.nickname || author?.unique_id || 'No disponible'}
 
 > 🎁 *¡Disfruta de tu audio navideño!*
-> 🎅 *Itsuki Nakano V3 te desea felices fiestas* 🎄`
+> 🎅 *Itsuki Nakano V3 te desea felices fiestas* 🎄`*/
 
         await conn.sendMessage(
           m.chat,
