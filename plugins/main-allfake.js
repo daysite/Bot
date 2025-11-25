@@ -21,11 +21,10 @@ global.tiempo = d.toLocaleString('en-US', {hour: 'numeric', minute: 'numeric', s
 
 // Enlaces
 var canal = 'https://whatsapp.com/channel/0029VbBBXTr5fM5flFaxsO06'  
-var comunidad = 'https://chat.whatsapp.com/BXxWuamOOE4K9eKC623FIO'
 var git = 'https://github.com/leoxito'
 var github = 'https://github.com/leoxito/Itsuki-NakanoV2'
 var correo = 'xzzysultra@gmail.com'
-global.redes = [canal, comunidad, git, github, correo].getRandom()
+global.redes = [canal, git, github, correo].getRandom()
 
 // Información del usuario y stickers
 global.nombre = m.pushName || 'User-MD'
