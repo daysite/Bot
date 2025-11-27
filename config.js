@@ -15,8 +15,9 @@ global.roowner = ['51906278352']
 global.owner = [
    ['51932884973', '۪〬.࠭⤿ 👑 ⋅ deyner   rap', true],
    ['51906278352', 'Deyner     🦇🩸', true],
-   ['51906278352', 'Deyner Ofc, true],
-// son pndjos todos menos David y Leo por poco también son
+   ['51906278352', 'Deyner Ofc', true ],
+ 
+
    ['51906278352', 'DeynerMD', true],
    ['51932884973', '𝐒𝐨𝐲 deyner<𝟑', true],
    ['51958294414', 'Deyner🐢', true],
