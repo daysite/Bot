@@ -59,7 +59,6 @@ let handler = async (m, { conn, args, text, usedPrefix, command }) => {
 			await conn.sendMessage(m.chat, payload, { quoted: m })
 			delivered = true
 		} catch (primaryErr) {
-			console.error('[ytmp3] envío principal falló:', primaryErr)
 			try {
 				await conn.sendMessage(
 					m.chat,
@@ -71,9 +70,7 @@ let handler = async (m, { conn, args, text, usedPrefix, command }) => {
 					{ quoted: m }
 				)
 				delivered = true
-			} catch (fallbackErr) {
-				console.error('[ytmp3] envío documento falló:', fallbackErr)
-			}
+			} catch (fallbackErr) {}
 		}
 
 		if (!delivered) {
@@ -83,7 +80,6 @@ let handler = async (m, { conn, args, text, usedPrefix, command }) => {
 
 		await tryReact(m, '✅')
 	} catch (error) {
-		console.error('[ytmp3] error:', error)
 		await tryReact(m, '✖️')
 	}
 }
