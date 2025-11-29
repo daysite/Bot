@@ -22,94 +22,108 @@ function pickFileName(mime, scale) {
 }
 
 const handler = async (m, { conn, args, usedPrefix, command }) => {
-  let q = m.quoted || m
-  let mime = (q.msg || q).mimetype || q.mediaType || ''
-  const fancyQuoted = await makeFkontak()
-  const quotedContact = fancyQuoted || m
-
-  if (!mime || !/image\/(jpe?g|png)/i.test(mime)) {
-    const quotedContext = m.message?.extendedTextMessage?.contextInfo?.quotedMessage
-    const quotedImage = quotedContext?.imageMessage
-    if (quotedImage) {
-      q = {
-        message: { imageMessage: quotedImage },
-        download: async () => conn.downloadMediaMessage({ key: {}, message: { imageMessage: quotedImage } })
+  try {
+    let q = m.quoted || m
+    let mime = (q.msg || q).mimetype || q.mediaType || ''
+    
+    // Verificar si hay una imagen citada
+    if (!mime || !/image\/(jpe?g|png)/i.test(mime)) {
+      const quotedContext = m.message?.extendedTextMessage?.contextInfo?.quotedMessage
+      const quotedImage = quotedContext?.imageMessage
+      if (quotedImage) {
+        q = {
+          message: { imageMessage: quotedImage },
+          download: async () => conn.downloadMediaMessage({ key: {}, message: { imageMessage: quotedImage } })
+        }
+        mime = quotedImage.mimetype || 'image/jpeg'
       }
-      mime = quotedImage.mimetype || 'image/jpeg'
     }
-  }
 
-  if (!mime || !/image\/(jpe?g|png)/i.test(mime)) {
-    return conn.reply(m.chat, `> ⓘ Envía o responde a una imagen JPG/PNG.\n> ⓘ Uso: ${usedPrefix}${command} [2|4|8]`, quotedContact)
-  }
+    // Si aún no hay imagen, mostrar ayuda
+    if (!mime || !/image\/(jpe?g|png)/i.test(mime)) {
+      return conn.reply(m.chat, `> ⓘ *Uso correcto:*\n> ⓘ ${usedPrefix}${command} [2|4|8]\n> ⓘ Responde a una imagen JPG/PNG o envíala con el comando`, m)
+    }
 
-  let buffer
-  try {
-    buffer = await q.download?.()
-  } catch (_) {
-    buffer = null
-  }
-  if (!buffer) {
+    // Descargar la imagen
+    let buffer
     try {
-      buffer = await conn.downloadMediaMessage(q)
-    } catch (err) {
-      return conn.reply(m.chat, `> ⓘ No se pudo descargar la imagen: ${err.message || err}`, quotedContact)
+      buffer = await q.download?.()
+    } catch (_) {
+      buffer = null
     }
-  }
+    
+    if (!buffer) {
+      try {
+        buffer = await conn.downloadMediaMessage(q)
+      } catch (err) {
+        return conn.reply(m.chat, '> ⓘ Error al descargar la imagen', m)
+      }
+    }
 
-  if (!buffer) {
-    return conn.reply(m.chat, '> ⓘ No se pudo obtener la imagen.', quotedContact)
-  }
+    if (!buffer) {
+      return conn.reply(m.chat, '> ⓘ No se pudo obtener la imagen', m)
+    }
 
-  let scale = parseScale(args)
-  if (!VALID_SCALES.has(scale)) {
-    return conn.reply(m.chat, '> ⓘ Escala inválida. Usa 2, 4 u 8.', quotedContact)
-  }
+    // Verificar tamaño de la imagen
+    if (buffer.length > 10 * 1024 * 1024) { // 10MB
+      return conn.reply(m.chat, '> ⓘ La imagen es demasiado grande (máximo 10MB)', m)
+    }
 
-  await m.react?.('🕑')
-  try {
-    const result = await upscaleWithIloveimg({
-      buffer,
-      fileName: pickFileName(mime, scale),
-      mimeType: /png/i.test(mime) ? 'image/png' : 'image/jpeg',
-      scale
-    })
+    // Obtener escala
+    let scale = parseScale(args)
+    if (!VALID_SCALES.has(scale)) {
+      return conn.reply(m.chat, '> ⓘ Escala inválida. Usa: 2, 4 u 8', m)
+    }
 
-    await conn.sendMessage(
-      m.chat,
-      {
-        image: result.buffer,
-        mimetype: result.contentType || (/png/i.test(result.fileName) ? 'image/png' : 'image/jpeg'),
-        fileName: result.fileName
-      },
-      { quoted: quotedContact }
-    )
-    await m.react?.('✅')
-  } catch (err) {
-    await m.react?.('❌')
-    const errMsg = err?.response?.status
-      ? `Error ${err.response.status}: ${err.response.statusText}`
-      : (err?.message || 'Error desconocido')
-    return conn.reply(m.chat, `> ⓘ Fallo al usar IloveIMG: ${errMsg}`, quotedContact)
+    await m.react('🕒')
+
+    // Procesar con IloveIMG
+    try {
+      const result = await upscaleWithIloveimg({
+        buffer,
+        fileName: pickFileName(mime, scale),
+        mimeType: /png/i.test(mime) ? 'image/png' : 'image/jpeg',
+        scale,
+        verbose: false
+      })
+
+      // Enviar imagen mejorada
+      await conn.sendMessage(
+        m.chat,
+        {
+          image: result.buffer,
+          mimetype: result.contentType,
+          fileName: result.fileName
+        },
+        { quoted: m }
+      )
+      
+      await m.react('✅')
+      
+    } catch (error) {
+      await m.react('❌')
+      
+      let errorMessage = '> ⓘ Error al procesar la imagen'
+      
+      if (error.message?.includes('timeout')) {
+        errorMessage = '> ⓘ Tiempo de espera agotado. Intenta nuevamente.'
+      } else if (error.message?.includes('token') || error.message?.includes('taskId')) {
+        errorMessage = '> ⓘ Error del servicio. Intenta más tarde.'
+      } else if (error.message?.includes('tamaño') || error.message?.includes('size')) {
+        errorMessage = '> ⓘ La imagen es demasiado grande para procesar.'
+      }
+      
+      return conn.reply(m.chat, errorMessage, m)
+    }
+
+  } catch (error) {
+    await m.react('❌')
+    return conn.reply(m.chat, '> ⓘ Error inesperado al ejecutar el comando', m)
   }
 }
 
-handler.help = ['hd']
+handler.help = ['hd <2|4|8>']
 handler.tags = ['tools']
-handler.command = ['hd'];
+handler.command = /^(hd|upscale|enhance|iloveimg)$/i
 
 export default handler
-
-async function makeFkontak() {
-  try {
-    const res = await fetch('https://i.postimg.cc/pLh4hJ7D/download-(1)-(1).png')
-    const thumb2 = Buffer.from(await res.arrayBuffer())
-    return {
-      key: { participants: '0@s.whatsapp.net', remoteJid: 'status@broadcast', fromMe: false, id: 'Halo' },
-      message: { locationMessage: { name: 'HD', jpegThumbnail: thumb2 } },
-      participant: '0@s.whatsapp.net'
-    }
-  } catch {
-    return undefined
-  }
-}
