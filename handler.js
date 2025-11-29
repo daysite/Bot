@@ -18,7 +18,7 @@ const localPart = v => (v + '').split('@')[0].split(':')[0].split('/')[0].split(
 const normalizeCore = v => toNum(localPart(v))
 const prettyNum = v => { const n = normalizeCore(v); if (!n) return ''; return `+${n}` }
 
-// Función normalizeJid mejorada con compatibilidad simple.js
+// Función normalizeJid mejorada
 const normalizeJid = v => {
     if (!v) return ''
     if (typeof v === 'number') v = String(v)
@@ -30,7 +30,6 @@ const normalizeJid = v => {
         return n ? n + '@s.whatsapp.net' : v
     }
     if (v.includes('@lid')) {
-        // Compatibilidad con LIDs de simple.js
         return v
     }
     const n = toNum(v)
@@ -48,7 +47,7 @@ function decodeJidCompat(jid = '') {
     return jid 
 }
 
-// Inicialización de la base de datos mejorada
+// Inicialización de la base de datos
 if (!global.db) global.db = { data: { users: {}, chats: {}, settings: {}, stats: {} } }
 if (!global.db.data) global.db.data = { users: {}, chats: {}, settings: {}, stats: {} }
 if (typeof global.loadDatabase !== 'function') global.loadDatabase = async () => {}
@@ -58,26 +57,17 @@ if (!global.lidResolver) {
     global.lidResolver = {
         cache: new Map(),
         getUserInfo: function(lidKey) {
-            return this.cache.get(lidKey) || null;
+            const cached = this.cache.get(lidKey);
+            if (cached && (Date.now() - cached.timestamp) < 300000) { // 5 minutos de cache
+                return cached;
+            }
+            return null;
         },
         setUserInfo: function(lidKey, userInfo) {
             this.cache.set(lidKey, { ...userInfo, timestamp: Date.now() });
         },
-        resolveLid: async function(lidJid, groupChatId, maxRetries = 2) {
-            const lidKey = lidJid.split('@')[0];
-            const cached = this.getUserInfo(lidKey);
-            if (cached && !cached.notFound && !cached.error) {
-                return cached.jid;
-            }
-            
-            try {
-                // Implementación básica de resolución LID
-                // En una implementación real, aquí iría la lógica para resolver LIDs
-                return lidJid; // Por ahora devolvemos el LID original
-            } catch (error) {
-                this.setUserInfo(lidKey, { error: error.message, notFound: true });
-                return lidJid;
-            }
+        clearCache: function() {
+            this.cache.clear();
         }
     };
 }
@@ -110,7 +100,7 @@ function isPremiumJid(jid) {
   return !!u?.premium
 }
 
-// Función parseUserTargets mejorada con compatibilidad simple.js
+// Función parseUserTargets mejorada
 function parseUserTargets(input, options = {}) {
     try {
         if (!input || input.trim() === '') return [];
@@ -123,36 +113,31 @@ function parseUserTargets(input, options = {}) {
         };
         const opts = { ...defaults, ...options };
 
-        // Si ya es un array, devolverlo limpiando
         if (Array.isArray(input)) {
             return input.map(jid => normalizeJid(jid)).filter(jid => jid);
         }
 
-        // Si es string, procesarlo
         if (typeof input === 'string') {
             let targets = [];
 
-            // Procesar menciones si están disponibles y se solicita
+            // Procesar menciones del mensaje actual
             if (opts.resolveMentions && m && m._mentionedJidResolved && m._mentionedJidResolved.length > 0) {
                 targets.push(...m._mentionedJidResolved.map(jid => normalizeJid(jid)));
             }
 
-            // Procesar texto para extraer números/JIDs con compatibilidad LID
+            // Procesar texto para extraer números/JIDs
             const textTargets = input.split(/[,;\s\n]+/).map(item => item.trim()).filter(item => item);
 
             for (let item of textTargets) {
-                // Si es una mención (@usuario)
                 if (item.startsWith('@')) {
                     const num = item.substring(1);
                     if (num) {
-                        // Usar la lógica de parseMention de simple.js
-                        const jid = this.parseMention?.(`@${num}`)?.[0] || `${num}@s.whatsapp.net`;
+                        const jid = `${num}@s.whatsapp.net`;
                         targets.push(jid);
                     }
                     continue;
                 }
 
-                // Si es un número de teléfono
                 if (/^[\d+][\d\s\-()]+$/.test(item)) {
                     const cleanNum = item.replace(/[^\d+]/g, '');
                     if (cleanNum.length >= 8) {
@@ -162,22 +147,18 @@ function parseUserTargets(input, options = {}) {
                     continue;
                 }
 
-                // Si ya parece un JID (incluyendo LIDs)
                 if (item.includes('@')) {
                     targets.push(normalizeJid(item));
                     continue;
                 }
 
-                // Para otros casos, tratar como número
                 if (/^\d+$/.test(item) && item.length >= 8) {
                     targets.push(`${item}@s.whatsapp.net`);
                 }
             }
 
-            // Eliminar duplicados y limpiar
             targets = [...new Set(targets.map(jid => normalizeJid(jid)).filter(jid => jid))];
 
-            // Limitar número máximo de targets
             if (opts.maxTargets && targets.length > opts.maxTargets) {
                 targets = targets.slice(0, opts.maxTargets);
             }
@@ -192,7 +173,78 @@ function parseUserTargets(input, options = {}) {
     }
 }
 
-// SISTEMA DE PRIMARY BOT - MEJORADO
+// SISTEMA DE RESOLUCIÓN LIDs MEJORADO
+async function resolveLidToRealJid(lidJid, groupChatId, conn, maxRetries = 3) {
+    if (!lidJid.endsWith('@lid') || !groupChatId?.endsWith('@g.us')) {
+        return lidJid.includes('@') ? lidJid : `${lidJid}@s.whatsapp.net`;
+    }
+
+    const lidKey = lidJid.split('@')[0];
+    const cached = global.lidResolver.getUserInfo(lidKey);
+    if (cached && cached.jid && !cached.jid.endsWith('@lid')) {
+        return cached.jid;
+    }
+
+    let attempts = 0;
+    while (attempts < maxRetries) {
+        try {
+            const metadata = await conn.groupMetadata(groupChatId);
+            if (!metadata?.participants) {
+                throw new Error('No se pudieron obtener los participantes del grupo');
+            }
+
+            // Buscar en los participantes del grupo
+            for (const participant of metadata.participants) {
+                if (!participant?.id) continue;
+                
+                try {
+                    // Verificar si este participante tiene el LID que buscamos
+                    const contactDetails = await conn.onWhatsApp(participant.id);
+                    if (!contactDetails?.[0]?.lid) continue;
+                    
+                    const participantLid = contactDetails[0].lid;
+                    const participantLidKey = participantLid.split('@')[0];
+                    
+                    if (participantLidKey === lidKey) {
+                        // Encontramos la coincidencia
+                        global.lidResolver.setUserInfo(lidKey, {
+                            jid: participant.id,
+                            name: participant.name || participant.notify || '',
+                            found: true
+                        });
+                        return participant.id;
+                    }
+                } catch (e) {
+                    continue;
+                }
+            }
+
+            // Si llegamos aquí, no encontramos el LID en el grupo
+            global.lidResolver.setUserInfo(lidKey, {
+                jid: lidJid,
+                notFound: true,
+                error: 'Usuario no encontrado en el grupo'
+            });
+            return lidJid;
+
+        } catch (error) {
+            attempts++;
+            if (attempts >= maxRetries) {
+                console.error(`Error resolviendo LID ${lidJid} después de ${maxRetries} intentos:`, error);
+                global.lidResolver.setUserInfo(lidKey, {
+                    jid: lidJid,
+                    error: error.message
+                });
+                return lidJid;
+            }
+            await delay(1000 * attempts); // Espera incremental
+        }
+    }
+    
+    return lidJid;
+}
+
+// SISTEMA DE PRIMARY BOT
 async function handlePrimaryBotSystem(m, conn) {
     if (!m.isGroup) return false;
 
@@ -202,33 +254,29 @@ async function handlePrimaryBotSystem(m, conn) {
     const universalWords = ['resetbot', 'resetprimario', 'botreset', 'setprimary', 'primary', 'unprimary', 'primarybot'];
     const firstWord = m.text ? m.text.trim().split(' ')[0].toLowerCase().replace(/^[./#]/, '') : '';
 
-    // Permitir comandos universales de administración de primary bot
     if (universalWords.includes(firstWord)) {
         return false;
     }
 
-    // Si este bot no es el primary bot, no procesar el comando
     if (conn?.user?.jid !== chat.primaryBot) {
-        // Verificar si el primary bot está conectado y en el grupo
         try {
             const groupMetadata = await conn.groupMetadata(m.chat).catch(() => null);
             const primaryBotInGroup = groupMetadata?.participants?.some(p => p.id === chat.primaryBot);
 
             if (primaryBotInGroup) {
-                return true; // Indicar que se debe ignorar el comando
+                return true;
             } else {
-                // Si el primary bot no está en el grupo, limpiar la configuración
                 chat.primaryBot = null;
                 return false;
             }
         } catch (error) {
             console.error('Error verificando primary bot:', error);
-            chat.primaryBot = null; // Limpiar en caso de error
+            chat.primaryBot = null;
             return false;
         }
     }
 
-    return false; // Continuar con el procesamiento normal
+    return false;
 }
 
 export async function handler(chatUpdate) {
@@ -241,16 +289,12 @@ export async function handler(chatUpdate) {
   if (!this.parseMention) {
       this.parseMention = function(text = "") {
           try {
-            const esNumeroValido = (numero) => {
-              const len = numero.length;
-              if (len < 8 || len > 13) return false; 
-              if (len > 10 && numero.startsWith("9")) return false;
-              const codigosValidos = ["1","7","20","27","30","31","32","33","34","36","39","40","41","43","44","45","46","47","48","49","51","52","53","54","55","56","57","58","60","61","62","63","64","65","66","81","82","84","86","90","91","92","93","94","95","98","211","212","213","216","218","220","221","222","223","224","225","226","227","228","229","230","231","232","233","234","235","236","237","238","239","240","241","242","243","244","245","246","248","249","250","251","252","253","254","255","256","257","258","260","261","262","263","264","265","266","267","268","269","290","291","297","298","299","350","351","352","353","354","355","356","357","358","359","370","371","372","373","374","375","376","377","378","379","380","381","382","383","385","386","387","389","420","421","423","500","501","502","503","504","505","506","507","508","509","590","591","592","593","594","595","596","597","598","599","670","672","673","674","675","676","677","678","679","680","681","682","683","685","686","687","688","689","690","691","692","850","852","853","855","856","880","886","960","961","962","963","964","965","966","967","968","970","971","972","973","974","975","976","977","978","979","992","993","994","995","996","998"]; 
-              return codigosValidos.some((codigo) => numero.startsWith(codigo));
-            };
-            return (text.match(/@(\d{5,20})/g) || []).map((m) => m.substring(1)).map((numero) => esNumeroValido(numero) ? `${numero}@s.whatsapp.net` : `${numero}@lid`);
+            return (text.match(/@(\d{5,20})/g) || []).map((m) => {
+                const num = m.substring(1);
+                return `${num}@s.whatsapp.net`;
+            });
           } catch (error) {
-            console.error("Error:", error);
+            console.error("Error en parseMention:", error);
             return [];
           }
       };
@@ -299,59 +343,6 @@ export async function handler(chatUpdate) {
     } catch { return '' }
   }
 
-  const currentParticipantsSet = async (chat) => {
-    let meta
-    try { meta = await this.groupMetadata(chat) } catch { meta = null }
-    const parts = meta?.participants || []
-    const set = new Set(parts.map(p => normalizeCore(p.id || p.jid)))
-    return { set, meta }
-  }
-
-  if (typeof this.groupParticipantsUpdate !== 'function' || !this._patchedGPU) {
-    const orig = this.groupParticipantsUpdate?.bind(this)
-    this.groupParticipantsUpdate = async (chatJid, ids = [], action, options = {}) => {
-      const chat = (typeof this.decodeJid === 'function' ? this.decodeJid(chatJid) : decodeJidCompat(chatJid))
-      if (!/@g.us$/.test(chat || '')) throw new Error('groupParticipantsUpdate: JID de chat inválido')
-      const unique = [...new Set((Array.isArray(ids) ? ids : [ids]).filter(Boolean))]
-      // Por defecto, no resolver vía onWhatsApp para evitar timeouts. Confiar en JIDs normalizados.
-      let targets = [...new Set(unique.map(x => normalizeJid(String(x))).filter(v => /@s\.whatsapp\.net$/.test(v)))]
-      // Si se solicita explícitamente, permitir resolución (podría ser más lento / propenso a timeout)
-      if (options?.resolve === true) {
-        const resolved = []
-        for (const t of unique) {
-          try {
-            const j = await resolveToUserJid(t)
-            if (j && /@s\.whatsapp\.net$/.test(j)) resolved.push(j)
-          } catch {}
-        }
-        if (resolved.length) targets = [...new Set(resolved)]
-      }
-      if (typeof orig === 'function') return orig(chat, targets, action, options)
-    }
-    this._patchedGPU = true
-  }
-
-  if (this && typeof this.getName !== 'function') {
-    this._nameCache = this._nameCache || new Map()
-    this.getName = (jid = '', fallbackToJid = false) => {
-      try {
-        if (!jid) jid = this.user?.id || ''
-        if (this._nameCache.has(jid)) return this._nameCache.get(jid)
-        let name
-        const store = this.contacts || this.contact || {}
-        const contact = store[jid] || store[jid.split('@')[0]] || {}
-        name = contact.name || contact.subject || contact.notify || contact.verifiedName
-        if (!name && /@g.us$/.test(jid)) {
-          try { name = this._groupCache?.[jid]?.data?.subject } catch {}
-        }
-        if (!name && !fallbackToJid) name = prettyNum(jid)
-        if (!name) name = prettyNum(jid)
-        this._nameCache.set(jid, name)
-        return name
-      } catch { return prettyNum(jid) }
-    }
-  }
-
   this.pushMessage(chatUpdate.messages).catch(console.error)
   let m = chatUpdate.messages[chatUpdate.messages.length - 1]
   if (!m) return
@@ -368,7 +359,7 @@ export async function handler(chatUpdate) {
     m = smsg(this, m) || m
     if (!m) return
 
-    // SISTEMA PRIMARY BOT - VERIFICACIÓN MEJORADA
+    // SISTEMA PRIMARY BOT
     const shouldIgnore = await handlePrimaryBotSystem(m, this);
     if (shouldIgnore) return;
 
@@ -408,14 +399,11 @@ export async function handler(chatUpdate) {
       const cfgDefaults = (global.chatDefaults && typeof global.chatDefaults === 'object') ? global.chatDefaults : {}
       if (chat) {
         for (const [k, v] of Object.entries(cfgDefaults)) { if (!(k in chat)) chat[k] = v }
-        // Alias: mantener 'bienvenida' sincronizado si usas 'welcome'
         if (!('bienvenida' in chat) && ('welcome' in chat)) chat.bienvenida = !!chat.welcome
-        // SISTEMA PRIMARY BOT - INICIALIZACIÓN
         if (!('primaryBot' in chat)) chat.primaryBot = null
       } else {
         global.db.data.chats[m.chat] = { ...cfgDefaults }
         if (!('bienvenida' in global.db.data.chats[m.chat]) && ('welcome' in cfgDefaults)) global.db.data.chats[m.chat].bienvenida = !!cfgDefaults.welcome
-        // SISTEMA PRIMARY BOT - INICIALIZACIÓN
         global.db.data.chats[m.chat].primaryBot = null
       }
       const botIdKey = this.user?.jid || (this.user?.id ? this.decodeJid(this.user.id) : 'bot')
@@ -434,8 +422,6 @@ export async function handler(chatUpdate) {
     if (!allowedBots.includes(mainBot)) allowedBots.push(mainBot)
     const isAllowed = allowedBots.includes(this.user.jid)
     if (isSubbs && !isAllowed) return
-
-    // SISTEMA PRIMARY BOT MEJORADO - ya manejado en handlePrimaryBotSystem
 
     if (opts['nyimak']) return
     if (!m.fromMe && opts['self']) return
@@ -461,84 +447,60 @@ export async function handler(chatUpdate) {
       return { id: rawId, wid, widNum: normalizeCore(wid), admin: participant.admin ? 'admin' : null, isAdmin: !!participant.admin }
     })
 
-    // Resolución de menciones LIDs mejorada
+    // SISTEMA DE RESOLUCIÓN DE MENCIONES MEJORADO
     const resolveMentionLids = async () => {
-      const rawMentionList = Array.isArray(m.message?.extendedTextMessage?.contextInfo?.mentionedJid) ? 
-          m.message.extendedTextMessage.contextInfo.mentionedJid : 
-          (Array.isArray(m.mentionedJid) ? m.mentionedJid : [])
-      
-      const needs = rawMentionList.some(j => /@lid$/i.test(j))
-      if (!needs) {
-        m._mentionedJidResolved = rawMentionList.map(j => (typeof this.decodeJid === 'function' ? this.decodeJid(j) : decodeJidCompat(j)))
-        return
-      }
-      
-      this._lidResolveCache = this._lidResolveCache || new Map()
-      
-      async function resolveLid(lidJid, ctx) {
-        if (!lidJid) return lidJid
-        if (!/@lid$/i.test(lidJid)) return (typeof ctx.decodeJid === 'function' ? ctx.decodeJid(lidJid) : decodeJidCompat(lidJid))
+      try {
+        const rawMentionList = Array.isArray(m.message?.extendedTextMessage?.contextInfo?.mentionedJid) ? 
+            m.message.extendedTextMessage.contextInfo.mentionedJid : 
+            (Array.isArray(m.mentionedJid) ? m.mentionedJid : []);
         
-        const num = normalizeCore(lidJid)
-        if (ctx._lidResolveCache.has(num)) return ctx._lidResolveCache.get(num)
+        if (rawMentionList.length === 0) {
+          m._mentionedJidResolved = [];
+          return;
+        }
+
+        const hasLids = rawMentionList.some(j => j && j.endsWith('@lid'));
         
-        // Usar el sistema de resolución LID de simple.js si está disponible
-        if (typeof String.prototype.resolveLidToRealJid === 'function') {
+        if (!hasLids) {
+          // Si no hay LIDs, simplemente normalizar los JIDs
+          m._mentionedJidResolved = rawMentionList.map(j => normalizeJid(j)).filter(j => j);
+          return;
+        }
+
+        // Resolver LIDs
+        const resolved = [];
+        for (const jid of rawMentionList) {
+          if (!jid) continue;
+          
+          if (jid.endsWith('@lid')) {
+            // Resolver LID
             try {
-                const resolved = await String.prototype.resolveLidToRealJid.call(
-                    lidJid, 
-                    m.chat, 
-                    ctx, 
-                    2, 
-                    1000
-                );
-                if (resolved && !resolved.endsWith('@lid')) {
-                    ctx._lidResolveCache.set(num, resolved);
-                    return resolved;
-                }
+              const realJid = await resolveLidToRealJid(jid, m.chat, this, 2);
+              resolved.push(realJid);
             } catch (error) {
-                console.log(`Error en resolveLid para ${lidJid}:`, error.message);
+              console.error(`Error resolviendo LID ${jid}:`, error);
+              resolved.push(jid); // Mantener el LID original si falla
             }
-        }
-        
-        const quick = participantsNormalized.find(p => p.widNum === num)
-        if (quick && /@s\.whatsapp\.net$/.test(quick.wid)) {
-          ctx._lidResolveCache.set(num, quick.wid); return quick.wid
-        }
-        
-        for (const p of participantsNormalized) {
-          const real = p.wid || p.id
-          if (!real) continue
-          try {
-            const waInfo = await ctx.onWhatsApp(real)
-            const lidField = waInfo?.[0]?.lid
-            if (lidField && normalizeCore(lidField) === num) { 
-                ctx._lidResolveCache.set(num, real); 
-                return real 
-            }
-          } catch {}
-        }
-        
-        const fallback = num ? `${num}@s.whatsapp.net` : lidJid
-        ctx._lidResolveCache.set(num, fallback)
-        return fallback
-      }
-      
-      const resolved = []
-      for (const jid of rawMentionList) resolved.push(await resolveLid(jid, this))
-      m._mentionedJidResolved = resolved
-      
-      if (m.message) {
-        for (const k of Object.keys(m.message)) {
-          const msgObj = m.message[k]
-          if (msgObj && typeof msgObj === 'object' && msgObj.contextInfo) {
-            try { msgObj.contextInfo.mentionedJid = resolved } catch {}
+          } else {
+            // JID normal
+            resolved.push(normalizeJid(jid));
           }
         }
+
+        m._mentionedJidResolved = resolved.filter(j => j);
+
+        // Actualizar el contexto del mensaje si es necesario
+        if (m.message?.extendedTextMessage?.contextInfo) {
+          m.message.extendedTextMessage.contextInfo.mentionedJid = m._mentionedJidResolved;
+        }
+
+      } catch (error) {
+        console.error('Error en resolveMentionLids:', error);
+        m._mentionedJidResolved = [];
       }
-    }
-    
-    await resolveMentionLids()
+    };
+
+    await resolveMentionLids();
 
     const nameOf = async (jid) => {
       let n = ''
@@ -559,22 +521,18 @@ export async function handler(chatUpdate) {
       return n
     }
 
-    // Función displayTag mejorada para mostrar nombres en menciones
     const displayTag = async (jid) => {
-      const real = (typeof this.decodeJid === 'function' ? this.decodeJid(jid) : decodeJidCompat(jid))
+      const real = normalizeJid(jid)
       const num = prettyNum(real)
       const n = await nameOnlyIfExists(real)
 
-      // Si tenemos un nombre y no es solo números, usamos el nombre
       if (n && n.trim() !== '' && !/^\+?[0-9\s\-]+$/.test(n)) {
         return n.trim()
       }
 
-      // Si no tenemos nombre o es solo números, mostramos el número formateado
       return num
     }
 
-    // Función getUserInfo - MEJORADA con compatibilidad simple.js
     const getUserInfo = async (jid, options = {}) => {
         try {
             const normalizedJid = normalizeJid(jid);
@@ -584,15 +542,6 @@ export async function handler(chatUpdate) {
             const name = await nameOf(normalizedJid);
             const roles = await roleFor(normalizedJid);
             const badges = await badgeFor(normalizedJid);
-
-            // Información adicional del sistema simple.js
-            const additionalInfo = {
-                // Estas propiedades ya vienen de smsg() y son de solo lectura
-                isBaileys: m.isBaileys || false,
-                mediaMessage: m.mediaMessage || null,
-                mediaType: m.mediaType || null,
-                quoted: m.quoted || null
-            };
 
             return {
                 jid: normalizedJid,
@@ -607,8 +556,7 @@ export async function handler(chatUpdate) {
                 bank: user?.bank || 0,
                 ...roles,
                 badges,
-                displayTag: await displayTag(normalizedJid),
-                ...additionalInfo
+                displayTag: await displayTag(normalizedJid)
             };
         } catch (error) {
             console.error('Error en getUserInfo:', error);
@@ -618,7 +566,7 @@ export async function handler(chatUpdate) {
 
     const senderNum = normalizeCore(m.sender)
     const senderRaw = m.sender
-    const botNumsRaw = [this.user.jid, this.user.lid].filter(Boolean)
+    const botNumsRaw = [this.user.jid].filter(Boolean)
     const botNums = botNumsRaw.map(j => normalizeCore(j))
     let participantUser = m.isGroup ? participantsNormalized.find(p => p.widNum === senderNum || p.wid === senderRaw) : null
     let botParticipant = m.isGroup ? participantsNormalized.find(p => botNums.includes(p.widNum)) : null
@@ -630,12 +578,9 @@ export async function handler(chatUpdate) {
     m.isBotAdmin = isBotAdmin
     m.adminRole = isRAdmin ? 'superadmin' : (isAdmin ? 'admin' : null)
 
-    // NOTA: Las propiedades isBaileys, mediaMessage, mediaType ya vienen definidas desde smsg()
-    // y son de solo lectura. No intentar reasignarlas.
-
     if (!m.name) {
       const guess = await nameOf(m.sender)
-      const _displayName = guess || prettyNum(m.sender)
+      m.name = guess || prettyNum(m.sender)
     }
 
     const roleFor = async (jid) => {
@@ -688,7 +633,6 @@ export async function handler(chatUpdate) {
       }
       if (!opts['restrict']) if (plugin.tags && plugin.tags.includes('admin')) { continue }
 
-      // CORRECCIÓN: Expresión regular fija
       const str2Regex = str => str.replace(/[|\\{}()[\]^$+*?.]/g, '\\$&')
 
       let _prefix = plugin.customPrefix ? plugin.customPrefix : /^[./!#]/
@@ -758,7 +702,6 @@ export async function handler(chatUpdate) {
         else m.exp += xp
         if (plugin.limit && global.db.data.users[m.sender].limit < plugin.limit * 1) { this.reply(m.chat, `Se agotaron tus *Dolares 💲*`, m); continue }
         
-        // Objeto extra mejorado con todas las funcionalidades de simple.js
         let extra = { 
             match, 
             usedPrefix, 
@@ -786,7 +729,7 @@ export async function handler(chatUpdate) {
             role: m.role, 
             parseUserTargets: (input, opts) => parseUserTargets.call(this, input, { ...opts, m }),
             getUserInfo,
-            // Métodos de simple.js disponibles
+            resolveLidToRealJid: (lidJid) => resolveLidToRealJid(lidJid, m.chat, this),
             serializeM: () => smsg(this, m),
             cMod: this.cMod?.bind(this),
             copyNForward: this.copyNForward?.bind(this),
