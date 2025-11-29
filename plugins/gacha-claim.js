@@ -14,12 +14,11 @@ async function loadCharacters() {
     }
 }
 
-async function loadHarem() {
+async function saveCharacters(characters) {
     try {
-        const data = await fs.readFile(haremFilePath, 'utf-8')
-        return JSON.parse(data)
+        await fs.writeFile(charactersFilePath, JSON.stringify(characters, null, 2), 'utf-8')
     } catch (error) {
-        return []
+        throw new Error('> ⓘ \`No se pudo guardar el archivo characters.json\`')
     }
 }
 
@@ -38,42 +37,58 @@ let handler = async (m, { conn }) => {
         return
     }
 
-    try {
-        const characters = await loadCharacters()
-        const harem = await loadHarem()
+    if (m.quoted && m.quoted.sender === conn.user.jid) {
+        try {
+            const characters = await loadCharacters()
+            
+            // PATRÓN CORREGIDO - Busca exactamente "ID: *id*"
+            const characterIdMatch = m.quoted.text.match(/ID: \*(.+?)\*/)
 
-        const randomCharacter = characters[Math.floor(Math.random() * characters.length)]
-        const randomImage = randomCharacter.img[Math.floor(Math.random() * randomCharacter.img.length)]
+            if (!characterIdMatch) {
+                await conn.reply(m.chat, '> ⓘ \`No se pudo encontrar el ID del personaje\`', m)
+                await m.react('❌')
+                return
+            }
 
-        const userHarem = harem.find(entry => entry.characterId === randomCharacter.id)
-        const statusMessage = userHarem 
-            ? '🔴 Ya reclamado' 
-            : '🟢 Disponible'
+            const characterId = characterIdMatch[1]
+            const character = characters.find(c => c.id === characterId)
 
-        // FORMATO CORREGIDO - El claim busca "ID: *id*"
-        const message = `> ⓘ \`Nombre:\` *${randomCharacter.name}*\n> ⓘ \`Género:\` *${randomCharacter.gender}*\n> ⓘ \`Valor:\` *${randomCharacter.value}*\n> ⓘ \`Estado:\` *${statusMessage}*\n> ⓘ \`Fuente:\` *${randomCharacter.source}*\n> ⓘ \`ID:\` *${randomCharacter.id}*`
+            if (!character) {
+                await conn.reply(m.chat, '> ⓘ \`El mensaje citado no es un personaje válido\`', m)
+                await m.react('❌')
+                return
+            }
 
-        const mentions = userHarem ? [userHarem.userId] : []
+            if (character.user && character.user !== userId) {
+                await conn.reply(m.chat, `> ⓘ \`El personaje ya ha sido reclamado por:\` *@${character.user.split('@')[0]}*`, m, { mentions: [character.user] })
+                await m.react('❌')
+                return
+            }
 
-        await conn.sendMessage(m.chat, {
-            image: { url: randomImage },
-            caption: message,
-            mentions
-        }, { quoted: m })
+            character.user = userId
+            character.status = "Reclamado"
 
-        await m.react('✅')
+            await saveCharacters(characters)
 
-        cooldowns[userId] = now + 3 * 60 * 1000
+            await conn.reply(m.chat, `> ⓘ \`Has reclamado a:\` *${character.name}*`, m)
+            await m.react('✅')
 
-    } catch (error) {
-        await conn.reply(m.chat, `> ⓘ \`Error:\` *${error.message}*`, m)
+            cooldowns[userId] = now + 15 * 1000
+
+        } catch (error) {
+            await conn.reply(m.chat, `> ⓘ \`Error:\` *${error.message}*`, m)
+            await m.react('❌')
+        }
+
+    } else {
+        await conn.reply(m.chat, '> ⓘ \`Debes citar un personaje válido para reclamar\`', m)
         await m.react('❌')
     }
 }
 
-handler.help = ['rw']
+handler.help = ['c']
 handler.tags = ['gacha']
-handler.command = ['rw', 'rollwaifu']
+handler.command = ['c', 'claim']
 handler.group = true
 
 export default handler
