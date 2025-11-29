@@ -314,8 +314,8 @@ const handler = async (m, { conn, args, usedPrefix, command }) => {
   }
 }
 
-
-handler.tags = ['downloader']
+handler.help = ['applemusic']
+handler.tags = ['dl']
 handler.command = /^(applemusic)$/i
 
 export default handler
