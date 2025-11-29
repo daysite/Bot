@@ -6,21 +6,15 @@ import axios from "axios"
 const handler = async (m, { conn, text, usedPrefix, command }) => {
   try {
     if (!text?.trim())
-      return conn.reply(m.chat, `🎄 *¡NAVIDAD EN YOUTUBE!* 🎅
+      return conn.reply(m.chat, `> ⓘ USO INCORRECTO
 
-🎁 *BUSCADOR NAVIDEÑO*
+> ❌ Debes ingresar el nombre o enlace del video
 
-❌ *Uso incorrecto*
+> 📝 Ejemplo:
+> • ${usedPrefix + command} nombre del video
+> • ${usedPrefix + command} https://youtube.com/...`, m)
 
-\`\`\`Debes ingresar el nombre o enlace del video\`\`\`
-
-*Ejemplo:*
-• ${usedPrefix + command} villancicos navideños
-• ${usedPrefix + command} https://youtube.com/...
-
-> 🎅 *¡Itsuki Nakano V3 - Tu asistente navideño!* 🎄`, m)
-
-    await m.react('🎁')
+    await conn.sendMessage(m.chat, { react: { text: '🕑', key: m.key } })
 
     const videoMatch = text.match(/(?:https?:\/\/)?(?:www\.)?(?:youtube\.com|youtu\.be)\/(?:watch\?v=|embed\/|shorts\/|v\/)?([a-zA-Z0-9_-]{11})/)
     const query = videoMatch ? `https://youtu.be/${videoMatch[1]}` : text
@@ -30,34 +24,31 @@ const handler = async (m, { conn, text, usedPrefix, command }) => {
       ? search.videos.find(v => v.videoId === videoMatch[1]) || search.all[0]
       : search.all[0]
 
-    if (!result) throw '🎅 *¡BÚSQUEDA NAVIDEÑA!* 🎄\n\n❌ *No se encontraron resultados*\n\n\`\`\`Intenta con otra búsqueda\`\`\`'
+    if (!result) throw '> ⓘ SIN RESULTADOS\n\n❌ No se encontraron resultados\n\n💡 Intenta con otra búsqueda'
 
     const { title, thumbnail, timestamp, views, ago, url, author, seconds } = result
-    if (seconds > 60000) throw '🎅 *¡DURACIÓN EXCEDIDA!* 🎄\n\n❌ *El video supera el límite*\n\n\`\`\`Máximo 10 minutos\`\`\`'
+    if (seconds > 60000) throw '> ⓘ DURACION EXCEDIDA\n\n❌ El video supera el límite\n\n💡 Máximo 10 minutos'
 
-    const channelName = author?.name || '🎄 Canal Navideño'
+    const channelName = author?.name || 'Canal desconocido'
     const vistas = formatViews(views)
-    const info = `> 🎅 *¡YOUTUBE NAVIDEÑO!* 🎄
+    const info = `> *ⓘ Y O U T U B E - P L A Y S V3*
 
-> 👑 *Información del Video*
-
-> 🏷️ *Título:* ${title}
-> 📺 *Canal:* ${channelName}
-> 👀 *Vistas:* ${vistas}
-> ⏰ *Duración:* ${timestamp}
-> 📅 *Publicado:* ${ago}
-> 🔗 *Enlace:* ${url}
-
-> 🎄 *¡Disfruta del contenido navideño!* 🎅`
+> *🏷️ Título:* ${title}
+> *📺 Canal:* ${channelName}
+> *👀 Vistas:* ${vistas}
+> *⏱️ Duración:* ${timestamp}
+> *📅 Publicado:* ${ago}
+> *🔗 Enlace:* ${url}
+> *🎬 Tipo:* ${result.type || 'HD'}`
 
     const thumb = (await conn.getFile(thumbnail)).data
     await conn.sendMessage(m.chat, { image: thumb, caption: info }, { quoted: m })
 
     if (['play3', 'mp3'].includes(command)) {
-      await m.react('🎶')
+      await conn.sendMessage(m.chat, { react: { text: '🎵', key: m.key } })
 
       const audio = await savetube.download(url, "audio")
-      if (!audio?.status) throw `🎅 *¡ERROR NAVIDEÑO!* 🎄\n\n❌ *Error al obtener audio*\n\n\`\`\`${audio.error}\`\`\``
+      if (!audio?.status) throw `> ⓘ ERROR\n\n❌ Error al obtener audio\n\n💡 ${audio.error}`
 
       await conn.sendMessage(
         m.chat,
@@ -69,13 +60,13 @@ const handler = async (m, { conn, text, usedPrefix, command }) => {
         { quoted: m }
       )
 
-      await m.react('✅')
+      await conn.sendMessage(m.chat, { react: { text: '✅', key: m.key } })
     }
 
     else if (['play4', 'mp4'].includes(command)) {
-      await m.react('🎥')
+      await conn.sendMessage(m.chat, { react: { text: '🎥', key: m.key } })
       const video = await getVid(url)
-      if (!video?.url) throw '🎅 *¡ERROR NAVIDEÑO!* 🎄\n\n❌ *No se pudo obtener el video*'
+      if (!video?.url) throw '> ⓘ ERROR\n\n❌ No se pudo obtener el video'
 
       await conn.sendMessage(
         m.chat,
@@ -83,21 +74,30 @@ const handler = async (m, { conn, text, usedPrefix, command }) => {
           video: { url: video.url },
           fileName: `${title}.mp4`,
           mimetype: 'video/mp4',
-          caption: `🎁 *${title}*\n\n> 🎅 *¡Itsuki Nakano V3 te desea feliz navidad!* 🎄`
+          caption: `> *ⓘ Y O U T U B E - P L A Y S V3*
+
+> *🏷️ Título:* ${title}
+> *📺 Canal:* ${channelName}
+> *⏱️ Duración:* ${timestamp}
+> *👀 Vistas:* ${vistas}
+> *🎬 Formato:* MP4
+> *🌐 Servidor:* ${video.api || 'Yupra'}
+> *🫧 Calidad:* Alta
+> *🔗 link:* ${url}`
         },
         { quoted: m }
       )
-      await m.react('✅')
+      await conn.sendMessage(m.chat, { react: { text: '✅', key: m.key } })
     }
 
   } catch (e) {
-    await m.react('❌')
-    console.error('❌ Error en descarga YouTube:', e)
+    await conn.sendMessage(m.chat, { react: { text: '❌', key: m.key } })
+    console.error('Error en descarga YouTube:', e)
     return conn.reply(
       m.chat,
       typeof e === 'string'
         ? e
-        : `🎅 *¡ERROR NAVIDEÑO!* 🎄\n\n❌ *Ocurrió un error inesperado*\n\n\`\`\`${e.message || 'Error desconocido'}\`\`\`\n\n> 🎄 *¡Itsuki Nakano V3 - Tu ayuda en estas fiestas!* 🎅`,
+        : `> ⓘ ERROR\n\n❌ ${e.message || 'Error desconocido'}\n\n💡 Intenta más tarde`,
       m
     )
   }
@@ -130,7 +130,7 @@ async function fetchFromApis(apis) {
       const link = extractor(res)
       if (link) return { url: link, api }
     } catch (err) {
-      console.log(`❌ Error en API ${api}:`, err.message)
+      console.log(`Error en API ${api}:`, err.message)
     }
     await new Promise(resolve => setTimeout(resolve, 500))
   }
