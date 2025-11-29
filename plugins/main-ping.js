@@ -1,90 +1,53 @@
 let handler = async (m, { conn }) => {
-  const ctxErr = (global.rcanalx || {})
-  const ctxWarn = (global.rcanalw || {})
-  const ctxOk = (global.rcanalr || {})
-  const ctxht = (global.rcanal08 || {})
-
   try {
+    await conn.sendMessage(m.chat, { react: { text: '⚡️', key: m.key } })
+
     // Tiempo inicial
     const start = Date.now()
-
-    // Enviar mensaje de prueba
-    await conn.reply(m.chat, '🍙🏓 *Calculando velocidad...* 📚✨', m, ctxOk)
 
     // Tiempo final
     const end = Date.now()
 
-    // Calcular ping REAL (solo tiempo de respuesta del bot)
+    // Calcular ping
     const ping = end - start
 
-    // Evaluación REALISTA del ping
-    let speed, emoji, status;
+    // Evaluación del ping
+    let speed, status;
     if (ping < 100) {
-      speed = '*🚀 Extremadamente Rápido*'
-      emoji = '🎯'
-      status = 'Excelente'
+      speed = '🚀 Extremadamente Rápido'
+      status = '🟢 Excelente'
     } else if (ping < 300) {
-      speed = '*⚡ Muy Rápido*'
-      emoji = '⚡'
-      status = 'Óptimo'
+      speed = '⚡ Muy Rápido'
+      status = '🟡 Óptimo'
     } else if (ping < 600) {
       speed = '🏓 Rápido'
-      emoji = '🏓'
-      status = 'Bueno'
+      status = '🟡 Bueno'
     } else if (ping < 1000) {
       speed = '📶 Normal'
-      emoji = '📶'
-      status = 'Estable'
+      status = '🟠 Estable'
     } else {
       speed = '🐢 Lento'
-      emoji = '🐢'
-      status = 'Regular'
+      status = '🔴 Regular'
     }
 
-    // Obtener uso de memoria REAL
-    const used = process.memoryUsage()
-    const memory = Math.round(used.rss / 1024 / 1024) + ' MB'
-
-    // Obtener tiempo de actividad REAL
-    const uptime = process.uptime()
-    const hours = Math.floor(uptime / 3600)
-    const minutes = Math.floor((uptime % 3600) / 60)
-    const seconds = Math.floor(uptime % 60)
-    const uptimeString = `${hours}h ${minutes}m ${seconds}s`
-
-    // Información REAL del sistema
-    const platform = process.platform
-    const arch = process.arch
-    const nodeVersion = process.version
-
-    // Mensaje del ping REAL
+    // Mensaje del ping
     const pingMessage = `
-${emoji} **Itsuki Nakano - Estado del Sistema** ✨️📊
 
-🏓 *Velocidad REAL:* ${ping} ms
-📊 *Conexión:* ${speed}
-🟢 *Rendimiento:* ${status}
-
-💾 *Memoria Usada:* ${memory}
-⏱️ *Tiempo Activo:* ${uptimeString}
-🖥️ *Plataforma:* ${platform}
-🔧 *Arquitectura:* ${arch}
-📦 *Node.js:* ${nodeVersion}
-
-🍙 *"¡Sistema funcionando perfectamente!"* 📚✨
-    `.trim()
+\`Ping :\` ${ping} ms
+\`Velocidad :\` ${speed}
+\`Estado :\` ${status}`
 
     // Enviar resultado
-    await conn.reply(m.chat, pingMessage, m, ctxOk)
+    await conn.reply(m.chat, pingMessage, m)
+    await conn.sendMessage(m.chat, { react: { text: '✅', key: m.key } })
 
   } catch (error) {
     console.error('Error en ping:', error)
+    await conn.sendMessage(m.chat, { react: { text: '❌', key: m.key } })
     await conn.reply(m.chat, 
-      `❌ *Error en el diagnóstico*\n\n` +
-      `🍙 *"¡No pude calcular la velocidad!"*\n\n` +
-      `🔧 *Error:* ${error.message}`,
-      m, ctxErr
-    )
+      `> ⓘ ERROR
+
+\`Error :\` No se pudo calcular el ping`, m)
   }
 }
 
