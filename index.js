@@ -14,9 +14,8 @@ import config from './config.js'
 import { sendWelcomeOrBye } from './lib/welcome.js'
 import { loadDatabase, saveDatabase, DB_PATH } from './lib/db.js'
 import { watchFile } from 'fs'
-import { yukiJadiBot } from './plugins/sockets-serbot.js'
 
-// ✅ AGREGAR ESTAS 2 LÍNEAS
+// ✅ 
 import dotenv from 'dotenv'
 dotenv.config()
 
@@ -183,23 +182,6 @@ browser: method === 'code' ? Browsers.macOS('Safari') : ['SuperBot','Chrome','1.
 })
 
 global.conn = sock
-const rutaJadiBot = path.join(__dirname, `./${global.jadi}`)
-if (!fs.existsSync(rutaJadiBot)) {
-fs.mkdirSync(rutaJadiBot, { recursive: true })
-}
-const readRutaJadiBot = fs.readdirSync(rutaJadiBot)
-if (readRutaJadiBot.length > 0) {
-const creds = 'creds.json'
-for (const gjbts of readRutaJadiBot) {
-const botPath = path.join(rutaJadiBot, gjbts)
-if (fs.existsSync(botPath) && fs.statSync(botPath).isDirectory()) {
-const readBotPath = fs.readdirSync(botPath)
-if (readBotPath.includes(creds)) {
-yukiJadiBot({ pathYukiJadiBot: botPath, m: null, conn: sock, args: '', usedPrefix: '/', command: 'serbot' })
-}
-}
-}
-}
 
 sock.__sessionOpenAt = sock.__sessionOpenAt || 0
 sock.ev.on('messages.upsert', async (chatUpdate) => {
