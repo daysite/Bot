@@ -14,6 +14,55 @@ const delay = ms => isNumber(ms) && new Promise(resolve => setTimeout(function (
     resolve()
 }, ms))
 
+// === SISTEMA DE MULTI-PREFIJO MEJORADO ===
+const globalPrefixes = [
+  '.', ',', '!', '#', '$', '%', '&', '*',
+  '-', '_', '+', '=', '|', '\\', '/', '~',
+  '>', '<', '^', '?', ':', ';'
+];
+
+// Función para detectar prefijo con soporte para emojis
+const detectPrefix = (text, customPrefix = null) => {
+  if (!text || typeof text !== 'string') return null;
+  
+  // Primero verificar prefijos personalizados del chat
+  if (customPrefix) {
+    // Si es array (lista de prefijos del chat)
+    if (Array.isArray(customPrefix)) {
+      for (const prefix of customPrefix) {
+        if (text.startsWith(prefix)) {
+          return { 
+            match: prefix, 
+            prefix: prefix, 
+            type: 'custom'
+          };
+        }
+      }
+    }
+    // Si es string (prefijo específico del chat)
+    else if (typeof customPrefix === 'string' && text.startsWith(customPrefix)) {
+      return { 
+        match: customPrefix, 
+        prefix: customPrefix, 
+        type: 'custom'
+      };
+    }
+  }
+  
+  // Si no hay prefijo personalizado o no coincide, usar prefijos globales
+  for (const prefix of globalPrefixes) {
+    if (text.startsWith(prefix)) {
+      return { 
+        match: prefix, 
+        prefix: prefix, 
+        type: 'global'
+      };
+    }
+  }
+  
+  return null;
+};
+
 // === DEFINICIÓN DE CÓDIGOS DE PAÍSES ===
 const paisesCodigos = {
     'arabia': ['+966', '966'],
@@ -233,6 +282,9 @@ export async function handler(chatUpdate) {
                 if (!("gacha" in chat)) chat.gacha = true
                 if (!("rootowner" in chat)) chat.rootowner = false
                 if (!("adminmode" in chat)) chat.adminmode = false
+                // === NUEVO: SISTEMA DE PREFIJOS POR CHAT ===
+                if (!("prefix" in chat)) chat.prefix = null
+                if (!("prefixes" in chat)) chat.prefixes = []
             } else global.db.data.chats[m.chat] = {
                 isBanned: false,
                 isMute: false,
@@ -252,7 +304,9 @@ export async function handler(chatUpdate) {
                 economy: true,
                 gacha: true,
                 rootowner: false,
-                adminmode: false
+                adminmode: false,
+                prefix: null,
+                prefixes: []
             }
 
             const settings = global.db.data.settings[this.user.jid]
@@ -459,25 +513,36 @@ export async function handler(chatUpdate) {
                 continue
             }
 
-            const strRegex = (str) => str.replace(/[|\\{}()[\]^$+*?.]/g, "\\$&")
-            // CORREGIDO: usar this.prefix en lugar de conn.prefix
-            const pluginPrefix = plugin.customPrefix || this.prefix || global.prefix
-
-            const match = (pluginPrefix instanceof RegExp ?
-                [[pluginPrefix.exec(m.text), pluginPrefix]] :
-                Array.isArray(pluginPrefix) ?
-                pluginPrefix.map(prefix => {
-                    const regex = prefix instanceof RegExp ?
-                        prefix : new RegExp(strRegex(prefix))
-                    return [regex.exec(m.text), regex]
-                }) : typeof pluginPrefix === "string" ?
-                [[new RegExp(strRegex(pluginPrefix)).exec(m.text), new RegExp(strRegex(pluginPrefix))]] :
-                [[[], new RegExp]]).find(prefix => prefix[1])
+            // === SISTEMA DE MULTI-PREFIJO ===
+            // Obtener prefijos para este chat
+            const chatPrefixes = chat?.prefixes || []
+            const chatPrefix = chat?.prefix || null
+            
+            // Crear lista combinada de prefijos: primero los del chat, luego los globales
+            let allPrefixes = []
+            if (chatPrefixes.length > 0) {
+                allPrefixes = [...chatPrefixes]
+            }
+            
+            // Si el chat tiene un prefijo específico, agregarlo primero
+            if (chatPrefix) {
+                allPrefixes = [chatPrefix, ...allPrefixes]
+            }
+            
+            // Agregar prefijos globales
+            allPrefixes = [...allPrefixes, ...globalPrefixes]
+            
+            // Remover duplicados
+            allPrefixes = [...new Set(allPrefixes)]
+            
+            // Detectar prefijo
+            const prefixMatch = detectPrefix(m.text, allPrefixes)
 
             if (typeof plugin.before === "function") {
                 if (await plugin.before.call(this, m, {
-                    match,
-                    conn: this, // Aquí sí pasamos this como conn para los plugins
+                    match: prefixMatch ? [prefixMatch.prefix] : [],
+                    prefixMatch,
+                    conn: this,
                     participants,
                     groupMetadata,
                     userGroup,
@@ -503,7 +568,7 @@ export async function handler(chatUpdate) {
                 continue
             }
 
-            if ((usedPrefix = (match[0] || "")[0])) {
+            if (prefixMatch && (usedPrefix = prefixMatch.prefix)) {
                 const noPrefix = m.text.replace(usedPrefix, "")
                 let [command, ...args] = noPrefix.trim().split(" ").filter(v => v)
                 args = args || []
@@ -617,7 +682,8 @@ export async function handler(chatUpdate) {
                 m.exp += plugin.exp ? parseInt(plugin.exp) : 10
 
                 let extra = {
-                    match,
+                    match: [usedPrefix],
+                    prefixMatch,
                     usedPrefix,
                     noPrefix,
                     _args,
@@ -684,23 +750,21 @@ export async function handler(chatUpdate) {
     }
 }
 
-global.dfail = (type, m, conn, usedPrefix = global.prefix || '.') => {
-    let edadaleatoria = ['10', '28', '20', '40', '18', '21', '15', '11', '9', '17', '25'][Math.floor(Math.random() * 11)]
+global.dfail = (type, m, conn, usedPrefix = '.') => {
     let user2 = m.pushName || 'Anónimo'
-    let verifyaleatorio = ['registrar', 'reg', 'verificar', 'verify', 'register'][Math.floor(Math.random() * 5)]
 
-      const msg = {
-    rowner: '> `ⓘ ᥱs𝗍ᥱ ᥴ᥆mᥲᥒძ᥆ s᥆ᥣ᥆ ᥣ᥆ ⍴ᥙᥱძᥱ ᥙ𝗍іᥣіzᥲr ᥱᥣ ⍴r᥆⍴іᥱ𝗍ᥲrі᥆ ძᥱᥣ ᑲ᥆𝗍.`',
-    owner: '> `ⓘ ᥱs𝗍ᥱ ᥴ᥆mᥲᥒძ᥆ s᥆ᥣ᥆ sᥱ ⍴ᥙᥱძᥱ ᥙsᥲr ⍴᥆r ᥱᥣ ⍴r᥆⍴іᥱ𝗍ᥲrі᥆ ძᥱᥣ ᑲ᥆𝗍.`',
-    mods: '> `ⓘ ᥱs𝗍ᥱ ᥴ᥆mᥲᥒძ᥆ s᥆ᥣ᥆ sᥱ ⍴ᥙᥱძᥱ ᥙsᥲr ⍴᥆r ᥱᥣ ⍴r᥆⍴іᥱ𝗍ᥲrі᥆ ძᥱᥣ ᑲ᥆𝗍.`',
-    premium: '> `ⓘ ᥱs𝗍ᥱ ᥴ᥆mᥲᥒძ᥆ s᥆ᥣ᥆ sᥱ ⍴ᥙᥱძᥱ ᥙ𝗍іᥣіzᥲr ⍴᥆r ᥙsᥙᥲrі᥆s ⍴rᥱmіᥙm, ᥡ ⍴ᥲrᥲ mі ᥴrᥱᥲძ᥆r.`',
-    group: '> `ⓘ ᥱs𝗍ᥱ ᥴ᥆mᥲᥒძ᥆ s᥆ᥣ᥆ sᥱ ⍴ᥙᥱძᥱ ᥙsᥲr ᥱᥒ grᥙ⍴᥆s.`',
-    private: '> `ⓘ ᥱs𝗍ᥱ ᥴ᥆mᥲᥒძ᥆ s᥆ᥣ᥆ sᥱ ⍴ᥙᥱძᥱ ᥙsᥲr ᥲᥴ һᥲ𝗍 ⍴rі᥎ᥲძ᥆ ძᥱᥣ ᑲ᥆𝗍.`',
-    admin: '> `ⓘ ᥱs𝗍ᥱ ᥴ᥆mᥲᥒძ᥆ s᥆ᥣ᥆ ᥱs ⍴ᥲrᥲ ᥲძmіᥒs ძᥱᥣ grᥙ⍴᥆.`',
-    botAdmin: '> `ⓘ ⍴ᥲrᥲ ⍴᥆ძᥱr ᥙsᥲr ᥱs𝗍ᥱ ᥴ᥆mᥲᥒძ᥆ ᥱs ᥒᥱᥴᥱsᥲrі᥆ 𝗊ᥙᥱ ᥡ᥆ sᥱᥲ ᥲძmіᥒ.`',
-    unreg: `> \`ⓘ ᥒᥱᥴᥱsі𝗍ᥲs ᥱs𝗍ᥲr rᥱgіs𝗍rᥲძ᥆(ᥲ) ⍴ᥲrᥲ ᥙsᥲr ᥱs𝗍ᥱ ᥴ᥆mᥲᥒძ᥆, ᥱsᥴrіᑲ᥆ #rᥱg ⍴ᥲrᥲ rᥱgіs𝗍rᥲr𝗍ᥱ.\``,
-    restrict: '> `ⓘ ᥴ᥆mᥲᥒძ᥆ rᥱs𝗍rіᥒgіძ᥆ ⍴᥆r ძᥱᥴіsі᥆ᥒ ძᥱᥣ ⍴r᥆⍴іᥱ𝗍ᥲrі᥆ ძᥱᥣ ᑲ᥆𝗍.`'
-  }[type];
+    const msg = {
+        rowner: '> `ⓘ ᥱs𝗍ᥱ ᥴ᥆mᥲᥒძ᥆ s᥆ᥣ᥆ ᥣ᥆ ⍴ᥙᥱძᥱ ᥙ𝗍іᥣіzᥲr ᥱᥣ ⍴r᥆⍴іᥱ𝗍ᥲrі᥆ ძᥱᥣ ᑲ᥆𝗍.`',
+        owner: '> `ⓘ ᥱs𝗍ᥱ ᥴ᥆mᥲᥒძ᥆ s᥆ᥣ᥆ sᥱ ⍴ᥙᥱძᥱ ᥙsᥲr ⍴᥆r ᥱᥣ ⍴r᥆⍴іᥱ𝗍ᥲrі᥆ ძᥱᥣ ᑲ᥆𝗍.`',
+        mods: '> `ⓘ ᥱs𝗍ᥱ ᥴ᥆mᥲᥒძ᥆ s᥆ᥣ᥆ sᥱ ⍴ᥙᥱძᥱ ᥙsᥲr ⍴᥆r ᥱᥣ ⍴r᥆⍴іᥱ𝗍ᥲrі᥆ ძᥱᥣ ᑲ᥆𝗍.`',
+        premium: '> `ⓘ ᥱs𝗍ᥱ ᥴ᥆mᥲᥒძ᥆ s᥆ᥣ᥆ sᥱ ⍴ᥙᥱძᥱ ᥙ𝗍іᥣіzᥲr ⍴᥆r ᥙsᥙᥲrі᥆s ⍴rᥱmіᥙm, ᥡ ⍴ᥲrᥲ mі ᥴrᥱᥲძ᥆r.`',
+        group: '> `ⓘ ᥱs𝗍ᥱ ᥴ᥆mᥲᥒძ᥆ s᥆ᥣ᥆ sᥱ ⍴ᥙᥱძᥱ ᥙsᥲr ᥱᥒ grᥙ⍴᥆s.`',
+        private: '> `ⓘ ᥱs𝗍ᥱ ᥴ᥆mᥲᥒძ᥆ s᥆ᥣ᥆ sᥱ ⍴ᥙᥱძᥱ ᥙsᥲr ᥲᥴ һᥲ𝗍 ⍴rі᥎ᥲძ᥆ ძᥱᥣ ᑲ᥆𝗍.`',
+        admin: '> `ⓘ ᥱs𝗍ᥱ ᥴ᥆mᥲᥒძ᥆ s᥆ᥣ᥆ ᥱs ⍴ᥲrᥲ ᥲძmіᥒs ძᥱᥣ grᥙ⍴᥆.`',
+        botAdmin: '> `ⓘ ⍴ᥲrᥲ ⍴᥆ძᥱr ᥙsᥲr ᥱs𝗍ᥱ ᥴ᥆mᥲᥒძ᥆ ᥱs ᥒᥱᥴᥱsᥲrі᥆ 𝗊ᥙᥱ ᥡ᥆ sᥱᥲ ᥲძmіᥒ.`',
+        unreg: `> \`ⓘ ᥒᥱᥴᥱsі𝗍ᥲs ᥱs𝗍ᥲr rᥱgіs𝗍rᥲძ᥆(ᥲ) ⍴ᥲrᥲ ᥙsᥲr ᥱs𝗍ᥱ ᥴ᥆mᥲᥒძ᥆, ᥱsᥴrіᑲ᥆ #rᥱg ⍴ᥲrᥲ rᥱgіs𝗍rᥲr𝗍ᥱ.\``,
+        restrict: '> `ⓘ ᥴ᥆mᥲᥒძ᥆ rᥱs𝗍rіᥒgіძ᥆ ⍴᥆r ძᥱᥴіsі᥆ᥒ ძᥱᥣ ⍴r᥆⍴іᥱ𝗍ᥲrі᥆ ძᥱᥣ ᑲ᥆𝗍.`'
+    }[type];
 
     if (msg) return conn.reply(m.chat, msg, m, global.rcanal).then(_ => m.react('❌️'))
 }
@@ -709,6 +773,14 @@ global.dfail = (type, m, conn, usedPrefix = global.prefix || '.') => {
 let file = fileURLToPath(import.meta.url)
 watchFile(file, async () => {
     unwatchFile(file)
-    console.log(chalk.magenta("Se actualizo 'handler.js'"))
+    console.log(chalk.magenta("Se actualizó 'handler.js'"))
     if (global.reloadHandler) console.log(await global.reloadHandler())
 })
+
+// Exportar funciones del sistema de prefijos
+global.detectPrefix = detectPrefix
+global.globalPrefixes = globalPrefixes
+
+export default { 
+    handler
+}
