@@ -293,11 +293,11 @@ export async function handler(chatUpdate) {
 
         const isOwner = isROwner || m.fromMe
 
-        // OBTENER INFORMACIÓN DE ADMINISTRADORES DEL GRUPO
+        // OBTENER INFORMACIÓN DE ADMINISTRADORES DEL GRUPO - CORREGIDO: usar this en lugar de conn
         const groupMetadata = m.isGroup ? { 
-            ...(conn.chats[m.chat]?.metadata || await this.groupMetadata(m.chat).catch(_ => null) || {}), 
-            ...(((conn.chats[m.chat]?.metadata || await this.groupMetadata(m.chat).catch(_ => null) || {}).participants) && { 
-                participants: ((conn.chats[m.chat]?.metadata || await this.groupMetadata(m.chat).catch(_ => null) || {}).participants || []).map(p => ({ 
+            ...(this.chats?.[m.chat]?.metadata || await this.groupMetadata(m.chat).catch(_ => null) || {}), 
+            ...(((this.chats?.[m.chat]?.metadata || await this.groupMetadata(m.chat).catch(_ => null) || {}).participants) && { 
+                participants: ((this.chats?.[m.chat]?.metadata || await this.groupMetadata(m.chat).catch(_ => null) || {}).participants || []).map(p => ({ 
                     ...p, 
                     id: p.jid, 
                     jid: p.jid, 
@@ -313,8 +313,9 @@ export async function handler(chatUpdate) {
             admin: participant.admin 
         }))
 
-        const userGroup = (m.isGroup ? participants.find((u) => conn.decodeJid(u.jid) === m.sender) : {}) || {}
-        const botGroup = (m.isGroup ? participants.find((u) => conn.decodeJid(u.jid) == this.user.jid) : {}) || {}
+        // CORREGIDO: usar this.decodeJid en lugar de conn.decodeJid
+        const userGroup = (m.isGroup ? participants.find((u) => this.decodeJid(u.jid) === m.sender) : {}) || {}
+        const botGroup = (m.isGroup ? participants.find((u) => this.decodeJid(u.jid) == this.user.jid) : {}) || {}
 
         const isRAdmin = userGroup?.admin == "superadmin" || false
         const isAdmin = isRAdmin || userGroup?.admin == "admin" || false
@@ -459,7 +460,8 @@ export async function handler(chatUpdate) {
             }
 
             const strRegex = (str) => str.replace(/[|\\{}()[\]^$+*?.]/g, "\\$&")
-            const pluginPrefix = plugin.customPrefix || conn.prefix || global.prefix
+            // CORREGIDO: usar this.prefix en lugar de conn.prefix
+            const pluginPrefix = plugin.customPrefix || this.prefix || global.prefix
 
             const match = (pluginPrefix instanceof RegExp ?
                 [[pluginPrefix.exec(m.text), pluginPrefix]] :
@@ -475,7 +477,7 @@ export async function handler(chatUpdate) {
             if (typeof plugin.before === "function") {
                 if (await plugin.before.call(this, m, {
                     match,
-                    conn: this,
+                    conn: this, // Aquí sí pasamos this como conn para los plugins
                     participants,
                     groupMetadata,
                     userGroup,
