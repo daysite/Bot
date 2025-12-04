@@ -181,24 +181,6 @@ async function isUserAdmin(conn, groupJid, userJid) {
 }
 
 export async function handler(chatUpdate) {
-    // Asegurar que this tenga todos los métodos necesarios
-    if (!this.pushMessage) {
-        this.pushMessage = async (messages) => {
-            try {
-                if (this.msgqueque === undefined) {
-                    this.msgqueque = []
-                }
-                if (Array.isArray(messages)) {
-                    this.msgqueque.push(...messages)
-                } else if (messages) {
-                    this.msgqueque.push(messages)
-                }
-            } catch (e) {
-                console.error('[pushMessage Error]', e)
-            }
-        }
-    }
-
     this.msgqueque = this.msgqueque || []
     this.uptime = this.uptime || Date.now()
 
@@ -206,12 +188,7 @@ export async function handler(chatUpdate) {
         return
     }
 
-    try {
-        await this.pushMessage(chatUpdate.messages)
-    } catch (error) {
-        console.error('[Handler pushMessage]', error)
-    }
-
+    this.pushMessage(chatUpdate.messages).catch(console.error)
     let m = chatUpdate.messages[chatUpdate.messages.length - 1]
 
     if (!m) {
@@ -370,21 +347,29 @@ export async function handler(chatUpdate) {
 
         const isOwner = isROwner || m.fromMe
 
-        // OBTENER INFORMACIÓN DE ADMINISTRADORES DEL GRUPO
-        let groupMetadata = {}
-        let participants = []
+        // OBTENER INFORMACIÓN DE ADMINISTRADORES DEL GRUPO - CORREGIDO: usar this en lugar de conn
+        const groupMetadata = m.isGroup ? { 
+            ...(this.chats?.[m.chat]?.metadata || await this.groupMetadata(m.chat).catch(_ => null) || {}), 
+            ...(((this.chats?.[m.chat]?.metadata || await this.groupMetadata(m.chat).catch(_ => null) || {}).participants) && { 
+                participants: ((this.chats?.[m.chat]?.metadata || await this.groupMetadata(m.chat).catch(_ => null) || {}).participants || []).map(p => ({ 
+                    ...p, 
+                    id: p.jid, 
+                    jid: p.jid, 
+                    lid: p.lid 
+                })) 
+            }) 
+        } : {}
 
-        if (m.isGroup) {
-            try {
-                groupMetadata = await this.groupMetadata(m.chat).catch(_ => null) || {}
-                participants = groupMetadata.participants || []
-            } catch (e) {
-                console.error('[GroupMetadata Error]', e)
-            }
-        }
+        const participants = ((m.isGroup ? groupMetadata.participants : []) || []).map(participant => ({ 
+            id: participant.jid, 
+            jid: participant.jid, 
+            lid: participant.lid, 
+            admin: participant.admin 
+        }))
 
-        const userGroup = (m.isGroup ? participants.find((u) => (this.decodeJid || global.decodeJid)(u.jid) === m.sender) : {}) || {}
-        const botGroup = (m.isGroup ? participants.find((u) => (this.decodeJid || global.decodeJid)(u.jid) == this.user.jid) : {}) || {}
+        // CORREGIDO: usar this.decodeJid en lugar de conn.decodeJid
+        const userGroup = (m.isGroup ? participants.find((u) => this.decodeJid(u.jid) === m.sender) : {}) || {}
+        const botGroup = (m.isGroup ? participants.find((u) => this.decodeJid(u.jid) == this.user.jid) : {}) || {}
 
         const isRAdmin = userGroup?.admin == "superadmin" || false
         const isAdmin = isRAdmin || userGroup?.admin == "admin" || false
@@ -431,14 +416,8 @@ export async function handler(chatUpdate) {
                 const sender = m.sender
 
                 // Sistema AntiArabe - EXPULSA números árabes
-                if (chat.antiArabe && sender) { // CORRECCIÓN: Verificar que sender existe
+                if (chat.antiArabe) {
                     const userNumber = sender.split('@')[0]
-                    
-                    // CORRECCIÓN: Verificar que userNumber sea válido
-                    if (!userNumber || typeof userNumber !== 'string') {
-                        return // Salir si no hay número válido
-                    }
-                    
                     const paisesArabes = [
                         '+966', '966', // Arabia Saudita
                         '+971', '971', // Emiratos Árabes Unidos
@@ -657,39 +636,84 @@ export async function handler(chatUpdate) {
 
                 if (adminMode && !isOwner && m.isGroup && !isAdmin && wa) return
 
-                // CORRECCIÓN IMPORTANTE: SOLO VALIDAR PERMISOS ESPECÍFICOS
-                // NO BLOQUEAR COMANDOS QUE NO TIENEN RESTRICCIONES
-
-                // Solo validar si el plugin específicamente requiere permisos
-                let permissionError = false
-
-                if (plugin.rowner && !isROwner) {
-                    permissionError = true
-                    fail("rowner", m, this, usedPrefix)
-                } else if (plugin.owner && !isOwner) {
-                    permissionError = true
-                    fail("owner", m, this, usedPrefix)
-                } else if (plugin.premium && !isPrems) {
-                    permissionError = true
-                    fail("premium", m, this, usedPrefix)
-                } else if (plugin.register == true && user.registered == false) {
-                    permissionError = true
-                    fail("unreg", m, this, usedPrefix)
-                } else if (plugin.group && !m.isGroup) {
-                    permissionError = true
-                    fail("group", m, this, usedPrefix)
-                } else if (plugin.botAdmin && !isBotAdmin) {
-                    permissionError = true
-                    fail("botAdmin", m, this, usedPrefix)
-                } else if (plugin.admin && !isAdmin) {
-                    permissionError = true
-                    fail("admin", m, this, usedPrefix)
-                } else if (plugin.private && m.isGroup) {
-                    permissionError = true
-                    fail("private", m, this, usedPrefix)
+                // CORRECCIÓN: Solo validar permisos si el plugin los especifica
+                if (plugin.rowner && plugin.owner && !(isROwner || isOwner)) {
+                    if (typeof fail === "function") {
+                        fail("rowner", m, this, usedPrefix)
+                    } else {
+                        global.dfail("rowner", m, this, usedPrefix)
+                    }
+                    continue
                 }
 
-                if (permissionError) continue
+                if (plugin.rowner && !isROwner) {
+                    if (typeof fail === "function") {
+                        fail("rowner", m, this, usedPrefix)
+                    } else {
+                        global.dfail("rowner", m, this, usedPrefix)
+                    }
+                    continue
+                }
+
+                if (plugin.owner && !isOwner) {
+                    if (typeof fail === "function") {
+                        fail("owner", m, this, usedPrefix)
+                    } else {
+                        global.dfail("owner", m, this, usedPrefix)
+                    }
+                    continue
+                }
+
+                if (plugin.premium && !isPrems) {
+                    if (typeof fail === "function") {
+                        fail("premium", m, this, usedPrefix)
+                    } else {
+                        global.dfail("premium", m, this, usedPrefix)
+                    }
+                    continue
+                }
+
+                // SISTEMA DE REGISTRO - VALIDACIÓN
+                if (plugin.register == true && user.registered == false) {
+                    if (typeof fail === "function") {
+                        fail("unreg", m, this, usedPrefix)
+                    } else {
+                        global.dfail("unreg", m, this, usedPrefix)
+                    }
+                    continue
+                }
+
+                if (plugin.group && !m.isGroup) {
+                    if (typeof fail === "function") {
+                        fail("group", m, this, usedPrefix)
+                    } else {
+                        global.dfail("group", m, this, usedPrefix)
+                    }
+                    continue
+                } else if (plugin.botAdmin && !isBotAdmin) {
+                    if (typeof fail === "function") {
+                        fail("botAdmin", m, this, usedPrefix)
+                    } else {
+                        global.dfail("botAdmin", m, this, usedPrefix)
+                    }
+                    continue
+                } else if (plugin.admin && !isAdmin) {
+                    if (typeof fail === "function") {
+                        fail("admin", m, this, usedPrefix)
+                    } else {
+                        global.dfail("admin", m, this, usedPrefix)
+                    }
+                    continue
+                }
+
+                if (plugin.private && m.isGroup) {
+                    if (typeof fail === "function") {
+                        fail("private", m, this, usedPrefix)
+                    } else {
+                        global.dfail("private", m, this, usedPrefix)
+                    }
+                    continue
+                }
 
                 m.isCommand = true
                 m.exp += plugin.exp ? parseInt(plugin.exp) : 10
@@ -763,12 +787,12 @@ export async function handler(chatUpdate) {
     }
 }
 
-// FUNCIÓN DFALL CORREGIDA - MENSAJES MÁS CLAROS
+// FUNCIÓN DFALL CORREGIDA - SOLO MOSTRAR MENSAJE CUANDO REALMENTE FALLA UN PERMISO
 global.dfail = (type, m, conn, usedPrefix = '.') => {
     let user2 = m.pushName || 'Anónimo'
 
     const msg = {
-                rowner: '> `ⓘ ᥱs𝗍ᥱ ᥴ᥆mᥲᥒძ᥆ s᥆ᥣ᥆ ᥣ᥆ ⍴ᥙᥱძᥱ ᥙ𝗍іᥣіzᥲr ᥱᥣ ⍴r᥆⍴іᥱ𝗍ᥲrі᥆ ძᥱᥣ ᑲ᥆𝗍.`',
+        rowner: '> `ⓘ ᥱs𝗍ᥱ ᥴ᥆mᥲᥒძ᥆ s᥆ᥣ᥆ ᥣ᥆ ⍴ᥙᥱძᥱ ᥙ𝗍іᥣіzᥲr ᥱᥣ ⍴r᥆⍴іᥱ𝗍ᥲrі᥆ ძᥱᥣ ᑲ᥆𝗍.`',
         owner: '> `ⓘ ᥱs𝗍ᥱ ᥴ᥆mᥲᥒძ᥆ s᥆ᥣ᥆ sᥱ ⍴ᥙᥱძᥱ ᥙsᥲr ⍴᥆r ᥱᥣ ⍴r᥆⍴іᥱ𝗍ᥲrі᥆ ძᥱᥣ ᑲ᥆𝗍.`',
         mods: '> `ⓘ ᥱs𝗍ᥱ ᥴ᥆mᥲᥒძ᥆ s᥆ᥣ᥆ sᥱ ⍴ᥙᥱძᥱ ᥙsᥲr ⍴᥆r ᥱᥣ ⍴r᥆⍴іᥱ𝗍ᥲrі᥆ ძᥱᥣ ᑲ᥆𝗍.`',
         premium: '> `ⓘ ᥱs𝗍ᥱ ᥴ᥆mᥲᥒძ᥆ s᥆ᥣ᥆ sᥱ ⍴ᥙᥱძᥱ ᥙ𝗍іᥣіzᥲr ⍴᥆r ᥙsᥙᥲrі᥆s ⍴rᥱmіᥙm, ᥡ ⍴ᥲrᥲ mі ᥴrᥱᥲძ᥆r.`',
@@ -780,7 +804,7 @@ global.dfail = (type, m, conn, usedPrefix = '.') => {
         restrict: '> `ⓘ ᥴ᥆mᥲᥒძ᥆ rᥱs𝗍rіᥒgіძ᥆ ⍴᥆r ძᥱᥴіsі᥆ᥒ ძᥱᥣ ⍴r᥆⍴іᥱ𝗍ᥲrі᥆ ძᥱᥣ ᑲ᥆𝗍.`'
     }[type];
 
-    if (msg) return conn.reply(m.chat, msg, m).then(_ => m.react('❌'))
+    if (msg) return conn.reply(m.chat, msg, m, global.rcanal).then(_ => m.react('❌️'))
 }
 
 // CORRECCIÓN: Cambiar global.__filename por fileURLToPath
