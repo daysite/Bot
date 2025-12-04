@@ -198,7 +198,7 @@ export async function handler(chatUpdate) {
             }
         }
     }
-    
+
     this.msgqueque = this.msgqueque || []
     this.uptime = this.uptime || Date.now()
 
@@ -211,7 +211,7 @@ export async function handler(chatUpdate) {
     } catch (error) {
         console.error('[Handler pushMessage]', error)
     }
-    
+
     let m = chatUpdate.messages[chatUpdate.messages.length - 1]
 
     if (!m) {
@@ -373,7 +373,7 @@ export async function handler(chatUpdate) {
         // OBTENER INFORMACIÓN DE ADMINISTRADORES DEL GRUPO
         let groupMetadata = {}
         let participants = []
-        
+
         if (m.isGroup) {
             try {
                 groupMetadata = await this.groupMetadata(m.chat).catch(_ => null) || {}
@@ -431,8 +431,14 @@ export async function handler(chatUpdate) {
                 const sender = m.sender
 
                 // Sistema AntiArabe - EXPULSA números árabes
-                if (chat.antiArabe) {
+                if (chat.antiArabe && sender) { // CORRECCIÓN: Verificar que sender existe
                     const userNumber = sender.split('@')[0]
+                    
+                    // CORRECCIÓN: Verificar que userNumber sea válido
+                    if (!userNumber || typeof userNumber !== 'string') {
+                        return // Salir si no hay número válido
+                    }
+                    
                     const paisesArabes = [
                         '+966', '966', // Arabia Saudita
                         '+971', '971', // Emiratos Árabes Unidos
@@ -653,10 +659,10 @@ export async function handler(chatUpdate) {
 
                 // CORRECCIÓN IMPORTANTE: SOLO VALIDAR PERMISOS ESPECÍFICOS
                 // NO BLOQUEAR COMANDOS QUE NO TIENEN RESTRICCIONES
-                
+
                 // Solo validar si el plugin específicamente requiere permisos
                 let permissionError = false
-                
+
                 if (plugin.rowner && !isROwner) {
                     permissionError = true
                     fail("rowner", m, this, usedPrefix)
