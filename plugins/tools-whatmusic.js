@@ -33,13 +33,13 @@ let handler = async (m, { usedPrefix, command, conn, text }) => {
 
         let { title, artists, album, genres, release_date } = res.metadata.music[0]
 
-        let txt = `*IDENTIFICADOR DE MÚSICA*
+        let txt = `*🎵 IDENTIFICADOR DE MÚSICA 🎵*
 
-> ◦ *Título:* ${title}
-> ◦ *Artista(s):* ${artists ? artists.map(v => v.name).join(', ') : 'Desconocido'}
-> ◦ *Álbum:* ${album?.name || 'Desconocido'}
-> ◦ *Género:* ${genres ? genres.map(v => v.name).join(', ') : 'Desconocido'}
-> ◦ *Fecha de lanzamiento:* ${release_date || 'Desconocido'}
+> 🎶 *Título:* ${title}
+> 👨‍🎤 *Artista(s):* ${artists ? artists.map(v => v.name).join(', ') : 'Desconocido'}
+> 💿 *Álbum:* ${album?.name || 'Desconocido'}
+> 🎼 *Género:* ${genres ? genres.map(v => v.name).join(', ') : 'Desconocido'}
+> 📅 *Fecha de lanzamiento:* ${release_date || 'Desconocido'}
 
 `.trim()
 
@@ -47,8 +47,22 @@ let handler = async (m, { usedPrefix, command, conn, text }) => {
 
         m.reply(txt)
 
+        // Agregar reacción de emoji
+        try {
+            await conn.sendMessage(m.chat, { react: { text: '🎵', key: m.key } })
+        } catch (e) {
+            console.log('Error al enviar reacción:', e)
+        }
+
     } else {
         m.reply(`> ⚠️ Responde a un *audio o video* con el comando *${command}*`)
+        
+        // Agregar reacción de error
+        try {
+            await conn.sendMessage(m.chat, { react: { text: '❌', key: m.key } })
+        } catch (e) {
+            console.log('Error al enviar reacción:', e)
+        }
     }
 }
 
