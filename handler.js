@@ -21,6 +21,8 @@ const globalPrefixes = [
   '>', '<', '^', '?', ':', ';'
 ]
 
+// [Resto de las funciones auxiliares detectPrefix, paisesCodigos, etc. - SE MANTIENEN IGUAL]
+
 const detectPrefix = (text, customPrefix = null) => {
   if (!text || typeof text !== 'string') return null
 
@@ -310,8 +312,7 @@ m.exp += Math.ceil(Math.random() * 10)
 if (m.message && m.key && m.key.participant && m.key.participant === this.user.jid) return
 if (m.message && m.key && m.key.remoteJid && m.key.remoteJid === this.user.jid) return
 
-// --- ⚠️ LÓGICA DEL COMANDO 'CODE' AÑADIDA AQUÍ ⚠️ ---
-// Este código se ejecuta ANTES de que el mensaje sea procesado por los plugins.
+// --- LÓGICA DEL COMANDO 'CODE' AÑADIDA AQUÍ ---
 const conn = this
 const prefixMatch = detectPrefix(m.text || '', globalPrefixes)
 let usedPrefix = prefixMatch ? prefixMatch.prefix : ''
@@ -322,20 +323,17 @@ command = (command || "").toLowerCase()
 if (command === 'code') {
   let userName = args[0] ? args[0] : m.sender.split("@")[0]
 
-  // Usa global.subbots del contexto del handler
   if (!global.subbots) global.subbots = [] 
 
-  // Verifica si ya está conectado
   const existing = global.subbots.find(c => c.id === userName && c.connection === 'open')
   if (existing) {
     await conn.sendMessage(m.chat, { react: { text: '🤖', key: m.key } })
     return conn.reply(m.chat, '*𝘠𝘢 𝘌𝘳𝘦𝘴 𝘚𝘶𝘣-𝘣𝘰𝘵 𝘋𝘦 𝘐𝘵𝘴𝘶𝘬𝘪 🟢*', m)
   }
 
-  // Inicia la conexión
-  // 'conn' es 'this' (la conexión principal), se pasa para que el sub-bot pueda usar sus funciones (como reply)
+  // Se llama a startSubBot correctamente
   await startSubBot(userName, conn, m) 
-  return // Detiene el procesamiento para evitar que entre al bucle de plugins
+  return 
 }
 // ------------------------------------------------------------------
 
