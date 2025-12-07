@@ -227,9 +227,6 @@ if (!("welcome" in chat)) chat.welcome = false
 if (!("sWelcome" in chat)) chat.sWelcome = ""
 if (!("sBye" in chat)) chat.sBye = ""
 if (!("detect" in chat)) chat.detect = true
-// Se elimina la inicialización de primaryBot, ya que no se usará.
-// if (!("primaryBot" in chat)) chat.primaryBot = null
-if (!("onlyMainBot" in chat)) chat.onlyMainBot = false // Nueva variable para el modo exclusivo
 if (!("modoadmin" in chat)) chat.modoadmin = false
 if (!("antiLink" in chat)) chat.antiLink = true
 if (!("nsfw" in chat)) chat.nsfw = false
@@ -251,9 +248,6 @@ welcome: false,
 sWelcome: "",
 sBye: "",
 detect: true,
-// Se elimina la inicialización de primaryBot.
-// primaryBot: null,
-onlyMainBot: false, // Nueva variable para el modo exclusivo
 modoadmin: false,
 antiLink: true,
 nsfw: false,
@@ -462,21 +456,6 @@ if (chat?.adminmode && !isAdmin && !isROwner) {
 }
 
 const isBotAdmin = botGroup?.admin || false
-
-// --- INICIO DE LA SECCIÓN CORREGIDA Y A PRUEBA DE FALLOS ---
-// Lógica para evitar que los sub-bots respondan si el modo exclusivo está activado
-
-// Comparamos el JID del bot actual con el JID del bot principal (si está disponible).
-// Usamos Optional Chaining (?.) para evitar errores si global.conn o global.conn.user no existen.
-const isMainBot = this.user.jid === global.conn?.user?.jid;
-
-// Si el chat está en modo exclusivo Y el bot actual NO es el principal, se detiene la ejecución.
-if (chat?.onlyMainBot && !isMainBot) {
-    // Opcional: puedes agregar un log para saber cuándo se bloquea un sub-bot
-    // console.log(`[Modo Exclusivo] Sub-bot ${this.user.jid} bloqueado en ${m.chat}.`);
-    return; // Detiene la ejecución del handler para este bot
-}
-// --- FIN DE LA SECCIÓN CORREGIDA Y A PRUEBA DE FALLOS ---
 
 const ___dirname = path.join(path.dirname(fileURLToPath(import.meta.url)), "./plugins")
 for (const name in global.plugins) {
@@ -712,16 +691,16 @@ let verifyaleatorio = ['registrar', 'reg', 'verificar', 'verify', 'register'].ge
 
 const msg = {
     retirado: 'Este comando solo lo pueden usar los owners retirados del bot',
-    rowner: '*\˙˚ʚ₍ ᐢ.👑.ᐢ ₎ɞ˚ ᥱs𝗍ᥱ ᥴ᥆mᥲᥒძ᥆ s᥆ᥣ᥆ ᥣ᥆ ⍴ᥙᥱძᥱ ᥙ𝗍іᥣіzᥲr ᥱᥣ ⍴r᥆⍴іᥱ𝗍ᥲrі᥆ ძᥱᥣ ᑲ᥆𝗍.\*',
+    rowner: '*\˙˚ʚ₍ ᐢ.👑.ᐢ ₎ɞ˚ ᥱs𝗍ᥱ ᥴ᥆mᥲᥒძ᥆ s᥆ᥣ᥆ ⍴ᥙᥱძᥱ ᥙ𝗍іᥣіzᥲr ⍴᥆r ᥱᥣ ⍴r᥆⍴іᥱ𝗍ᥲrі᥆ ძᥱᥣ ᑲ᥆𝗍.\*',
     owner: '*\˙˚ʚ₍ ᐢ.👤.ᐢ ₎ɞ˚ ᥱs𝗍ᥱ ᥴ᥆mᥲᥒძ᥆ s᥆ᥣ᥆ sᥱ ⍴ᥙᥱძᥱ ᥙsᥲr ⍴᥆r ᥱᥣ ⍴r᥆⍴іᥱ𝗍ᥲrі᥆ ძᥱᥣ ᑲ᥆𝗍.\*',
     mods: '*\˙˚ʚ₍ ᐢ.🍃.ᐢ ₎ɞ˚ ᥱs𝗍ᥱ ᥴ᥆mᥲᥒძ᥆ s᥆ᥣ᥆ sᥱ ⍴ᥙᥱძᥱ ᥙsᥲr ⍴᥆r ᥱᥣ ⍴r᥆⍴іᥱ𝗍ᥲrі᥆ ძᥱᥣ ᑲ᥆𝗍.\*',
     premium: '*\˙˚ʚ₍ ᐢ.💎.ᐢ ₎ɞ˚ ᥱs𝗍ᥱ ᥴ᥆mᥲᥒძ᥆ s᥆ᥣ᥆ sᥱ ⍴ᥙᥱძᥱ ᥙ𝗍іᥣіzᥲr ⍴᥆r ᥙsᥙᥲrі᥆s ⍴rᥱmіᥙm, ᥡ ⍴ᥲrᥲ mі ᥴrᥱᥲძ᥆r.\*',
     group: '*\˙˚ʚ₍ ᐢ.📚.ᐢ ₎ɞ˚ ᥱs𝗍ᥱ ᥴ᥆mᥲᥒძ᥆ s᥆ᥣ᥆ sᥱ ⍴ᥙᥱძᥱ ᥙsᥲr ᥱᥒ grᥙ⍴᥆s.\`*',
     private: '*\˙˚ʚ₍ ᐢ.📲.ᐢ ₎ɞ˚ ᥱs𝗍ᥱ ᥴ᥆mᥲᥒძ᥆ s᥆ᥣ᥆ sᥱ ⍴ᥙᥱძᥱ ᥙsᥲr ᥲᥣ ᥴһᥲ𝗍 ⍴rі᥎ᥲძ᥆ ძᥱᥣ ᑲ᥆𝗍.\*',
-    admin: '*\˙˚ʚ₍ ᐢ.🔱.ᐢ ₎ɞ˚ ᥱs𝗍ᥱ ᥴ᥆mᥲᥒძ᥆ s᥆ᥣ᥆ ᥱs ⍴ᥲrᥲ ᥲძmіᥒs ძᥱᥣ grᥙ⍴᥆.\`*',
-    botAdmin: '*\˙˚ʚ₍ ᐢ.🌟.ᐢ ₎ɞ˚ ⍴ᥲrᥲ ⍴᥆ძᥱr ᥙsᥲr ᥱs𝗍ᥱ ᥴ᥆mᥲᥒძ᥆ ᥱs ᥒᥱᥴᥱsᥲrі᥆ 𝗊ᥙᥱ ᥡ᥆ sᥱᥲ ᥲძmіᥒ.\*',
-    unreg: '*\˙˚ʚ₍ ᐢ.📋.ᐢ ₎ɞ˚ ᥒᥱᥴᥱsі𝗍ᥲs ᥱs𝗍ᥲr rᥱgіs𝗍rᥲძ᥆(ᥲ) ⍴ᥲrᥲ ᥙsᥲr ᥱs𝗍ᥱ ᥴ᥆mᥲᥒძ᥆, ᥱsᥴrіᑲ᥆ #rᥱg ⍴ᥲrᥲ rᥱgіs𝗍rᥲr𝗍ᥱ.\*',
-    restrict: '*\˙˚ʚ₍ ᐢ.⚙️.ᐢ ₎ɞ˚ ᥴ᥆mᥲᥒძ᥆ rᥱs𝗍rіᥒgіძ᥆ ⍴᥆r ძᥱᥴіsі᥆ᥒ ძᥱᥣ ⍴r᥆⍴іᥱ𝗍ᥲrі᥆ ძᥱᥣ ᑲ᥆𝗍.\*'
+    admin: '*\˙˚ʚ₍ ᐢ.🔱.ᐢ ₎ɞ˚ ᥱs𝗍ᥱ ᥴ᥆mᥲᥒძ᥆ s᥆ᥣ᥆ sᥱs ⍴ᥲrᥲ ᥲძmіᥒs ძᥱᥣ grᥙ⍴᥆.\`*',
+    botAdmin: '*\˙˚ʚ₍ ᐢ.🌟.ᐢ ₎ɞ˚ ⍴ᥲrᥲ ⍴᥆ძᥱr ᥙsᥲr ᥱs𝗍ᥱ ᥴ᥆mᥲᥒძ᥆ ᥱs ᥒᥱᥴᥱsᥲrіᥲr 𝗊ᥙᥱ ᥡ᥆ sᥱᥲ ᥲძmіᥒ.\*',
+    unreg: '*\˙˚ʚ₍ ᐢ.📋.ᐢ ₎ɞ˚ ᥒᥱᥴᥱsі𝗍ᥲs ᥱs𝗍ᥲr rᥱgіs𝗍rᥲძ᥆(ᥲ) ⍴ᥲrᥲ ᥙsᥲr ᥱs𝗍ᥱ ᥴ᥆mᥲᥒძ᥆, ᥱsᥴrіᑲᥲr #rᥱg ⍴ᥲrᥲ rᥱgіs𝗍rᥲr𝗍ᥱ.\*',
+    restrict: '*\˙˚ʚ₍ ᐢ.⚙️.ᐢ ₎ɞ˚ ᥴ᥆mᥲᥒძ᥆ rᥱs𝗍rіᥒgіძ᥆ ⍴ᥲr ძᥱᥴіsіᥲr ძᥱᥣ ⍴r᥆⍴іᥲ𝗍ᥲrі᥆ ძᥱᥣ ᑲ᥆𝗍.\*'
   }[type];
 if (msg) return conn.reply(m.chat, msg, m, global.rcanal).then(_ => m.react('✖️'))
 }
