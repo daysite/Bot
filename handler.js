@@ -227,7 +227,9 @@ if (!("welcome" in chat)) chat.welcome = false
 if (!("sWelcome" in chat)) chat.sWelcome = ""
 if (!("sBye" in chat)) chat.sBye = ""
 if (!("detect" in chat)) chat.detect = true
-if (!("primaryBot" in chat)) chat.primaryBot = null
+// Se elimina la inicialización de primaryBot, ya que no se usará.
+// if (!("primaryBot" in chat)) chat.primaryBot = null
+if (!("onlyMainBot" in chat)) chat.onlyMainBot = false // Nueva variable para el modo exclusivo
 if (!("modoadmin" in chat)) chat.modoadmin = false
 if (!("antiLink" in chat)) chat.antiLink = true
 if (!("nsfw" in chat)) chat.nsfw = false
@@ -249,7 +251,9 @@ welcome: false,
 sWelcome: "",
 sBye: "",
 detect: true,
-primaryBot: null,
+// Se elimina la inicialización de primaryBot.
+// primaryBot: null,
+onlyMainBot: false, // Nueva variable para el modo exclusivo
 modoadmin: false,
 antiLink: true,
 nsfw: false,
@@ -459,6 +463,18 @@ if (chat?.adminmode && !isAdmin && !isROwner) {
 
 const isBotAdmin = botGroup?.admin || false
 
+// --- INICIO DE LA SECCIÓN CORREGIDA ---
+// Lógica para evitar que los sub-bots respondan si el modo exclusivo está activado
+const isMainBot = this.user.jid === global.conn?.user?.jid;
+
+// Si el chat está en modo exclusivo y el bot actual NO es el principal, se detiene la ejecución.
+if (chat?.onlyMainBot && !isMainBot) {
+    // Opcional: puedes agregar un log para saber cuándo se bloquea un sub-bot
+    // console.log(`[Modo Exclusivo] Sub-bot ${this.user.jid} bloqueado en ${m.chat}`);
+    return; // Detiene la ejecución del handler para este bot
+}
+// --- FIN DE LA SECCIÓN CORREGIDA ---
+
 const ___dirname = path.join(path.dirname(fileURLToPath(import.meta.url)), "./plugins")
 for (const name in global.plugins) {
 const plugin = global.plugins[name]
@@ -575,35 +591,21 @@ global.comando = command
 if (!isOwners && settings.self) return
 if ((m.id.startsWith("NJX-") || (m.id.startsWith("BAE5") && m.id.length === 16) || (m.id.startsWith("B24E") && m.id.length === 20))) return
 
-if (global.db.data.chats[m.chat].primaryBot && global.db.data.chats[m.chat].primaryBot !== this.user.jid) {
-const primaryBotConn = global.conns.find(conn => conn.user.jid === global.db.data.chats[m.chat].primaryBot && conn.ws.socket && conn.ws.socket.readyState !== ws.CLOSED)
-const participants = m.isGroup ? (await this.groupMetadata(m.chat).catch(() => ({ participants: [] }))).participants : []
-const primaryBotInGroup = participants.some(p => p.jid === global.db.data.chats[m.chat].primaryBot)
-if (primaryBotConn && primaryBotInGroup || global.db.data.chats[m.chat].primaryBot === global.conn.user.jid) {
-throw !1
-} else {
-global.db.data.chats[m.chat].primaryBot = null
-}} else {
-}
-
 if (!isAccept) continue
 m.plugin = name
 global.db.data.users[m.sender].commands++
 if (chat) {
 const botId = this.user.jid
-const primaryBotId = chat.primaryBot
 if (name !== "group-banchat.js" && chat?.isBanned && !isROwner) {
-if (!primaryBotId || primaryBotId === botId) {
 const aviso = `El bot ${global.botname || 'Bot'} está desactivado en este grupo\n\n Un administrador puede activarlo con el comando:\n ${usedPrefix}bot on`.trim()
 await m.reply(aviso)
 return
-}}
+}
 if (m.text && user.banned && !isROwner) {
 const mensaje = `Estas baneado/a, no puedes usar comandos en este bot\n\n Razón ${user.bannedReason}\n\n Si este Bot es cuenta oficial y tienes evidencia que respalde que este mensaje es un error, puedes exponer tu caso con un moderador`.trim()
-if (!primaryBotId || primaryBotId === botId) {
 m.reply(mensaje)
 return
-}}}
+}}
 if (!isOwners && !m.chat.endsWith('g.us') && !/code|p|ping|qr|estado|status|infobot|botinfo|report|reportar|invite|join|logout|suggest|help|menu/gim.test(m.text)) return
 
 const adminMode = chat.modoadmin || false
