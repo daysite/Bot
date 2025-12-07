@@ -130,6 +130,9 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
             // Emoji cuando se genera el código
             await conn.sendMessage(m.chat, { react: { text: '✅️', key: m.key } })
 
+            // Variable con la URL de la imagen
+            const imageUrl = 'https://cdn.russellxz.click/73109d7e.jpg'
+
             // Sistema de botón para copiar el código CON IMAGEN
             const msg = generateWAMessageFromContent(m.chat, {
               viewOnceMessage: {
@@ -144,7 +147,7 @@ let handler = async (m, { conn, args, usedPrefix, command }) => {
                     header: proto.Message.InteractiveMessage.Header.create({ 
                       hasMediaAttachment: true,
                       documentMessage: proto.Message.DocumentMessage.create({
-                        url: "https://cdn.russellxz.click/73109d7e.jpg",
+                        url: imageUrl,
                         mimetype: "image/jpeg",
                         fileSha256: Buffer.from([]),
                         fileLength: 999999,
