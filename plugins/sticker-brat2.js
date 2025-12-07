@@ -1,9 +1,17 @@
 import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 const axios = require('axios');
+const fs = require('fs');
+const path = require('path');
+const { exec } = require('child_process');
+const util = require('util');
+const execAsync = util.promisify(exec);
 
 let handler = async (m, { conn, text, usedPrefix, command }) => {
     //Fixieada por ZzawX
+    
+    let tempFilePath;
+    let tempStickerPath;
     
     try {
         await m.react('🕒');
@@ -18,9 +26,17 @@ let handler = async (m, { conn, text, usedPrefix, command }) => {
             );
         }
 
+        const tempDir = './temp';
+        if (!fs.existsSync(tempDir)) {
+            fs.mkdirSync(tempDir, { recursive: true });
+        }
+
+        tempFilePath = path.join(tempDir, `brat2_temp_${Date.now()}.mp4`);
+        tempStickerPath = path.join(tempDir, `brat2_sticker_${Date.now()}.webp`);
+
         const username = m.pushName || m.sender.split('@')[0] || "Usuario";
         
-        // Lista de APIs a probar
+        // APIs a probar
         const apis = [
             {
                 name: "ZellAPI",
@@ -37,14 +53,14 @@ let handler = async (m, { conn, text, usedPrefix, command }) => {
             }
         ];
 
-        let stickerBuffer;
+        let mediaBuffer;
         let apiUsed = "Desconocida";
+        let isAlreadyWebP = false;
 
         for (const api of apis) {
             try {
                 console.log(`🔄 Probando API: ${api.name}`);
                 
-                // Hacer la petición sin especificar tipo de respuesta
                 const response = await axios({
                     method: 'GET',
                     url: api.url,
@@ -57,100 +73,59 @@ let handler = async (m, { conn, text, usedPrefix, command }) => {
                     }
                 });
 
-                const data = Buffer.from(response.data);
+                mediaBuffer = Buffer.from(response.data);
                 
-                // Verificar que tenga datos suficientes
-                if (!data || data.length < 100) {
+                if (!mediaBuffer || mediaBuffer.length < 100) {
                     console.log(`❌ ${api.name}: Datos insuficientes`);
                     continue;
                 }
 
-                // AUTO-DETECCIÓN DE FORMATO
-                const firstBytes = data.slice(0, 12);
+                // Guardar archivo temporal
+                fs.writeFileSync(tempFilePath, mediaBuffer);
                 
-                // Verificar si es JSON
-                try {
-                    const jsonString = data.toString('utf8');
-                    const jsonData = JSON.parse(jsonString);
-                    
-                    // Si es JSON válido, buscar URL de imagen
-                    if (jsonData && typeof jsonData === 'object') {
-                        console.log(`✅ ${api.name}: Es JSON, buscando URL...`);
-                        
-                        let imageUrl;
-                        
-                        // Buscar URL en diferentes estructuras de JSON
-                        if (jsonData.url) {
-                            imageUrl = jsonData.url;
-                        } else if (jsonData.result && jsonData.result.url) {
-                            imageUrl = jsonData.result.url;
-                        } else if (jsonData.result && typeof jsonData.result === 'string') {
-                            imageUrl = jsonData.result;
-                        } else if (jsonData.image) {
-                            imageUrl = jsonData.image;
-                        } else if (jsonData.data && jsonData.data.url) {
-                            imageUrl = jsonData.data.url;
-                        }
-                        
-                        if (imageUrl) {
-                            console.log(`🔗 ${api.name}: URL encontrada: ${imageUrl}`);
-                            
-                            // Descargar la imagen
-                            const imgResponse = await axios({
-                                method: 'GET',
-                                url: imageUrl,
-                                responseType: 'arraybuffer',
-                                timeout: 10000
-                            });
-                            
-                            stickerBuffer = Buffer.from(imgResponse.data);
-                            apiUsed = `${api.name} (JSON)`;
-                            break;
-                        }
-                    }
-                } catch (jsonError) {
-                    // No es JSON, continuar con otros formatos
-                }
-                
-                // Verificar si es imagen WEBP (sticker)
+                // Verificar si ya es WEBP
+                const firstBytes = mediaBuffer.slice(0, 12);
                 const isWebP = firstBytes.slice(0, 4).toString() === 'RIFF' && 
                               firstBytes.slice(8, 12).toString() === 'WEBP';
                 
                 if (isWebP) {
-                    console.log(`✅ ${api.name}: Es WEBP válido`);
-                    stickerBuffer = data;
-                    apiUsed = `${api.name} (WEBP directo)`;
+                    console.log(`✅ ${api.name}: Ya es WEBP, usando directamente`);
+                    isAlreadyWebP = true;
+                    fs.writeFileSync(tempStickerPath, mediaBuffer);
+                    apiUsed = api.name;
                     break;
                 }
                 
-                // Verificar si es MP4/GIF (video)
-                const isMP4 = firstBytes.slice(4, 8).toString() === 'ftyp';
-                const isGIF = firstBytes.slice(0, 6).toString() === 'GIF89a' || 
-                             firstBytes.slice(0, 6).toString() === 'GIF87a';
+                // Si no es WEBP, convertir a WEBP usando ffmpeg
+                console.log(`🔄 ${api.name}: Convirtiendo a WEBP...`);
                 
-                if (isMP4 || isGIF) {
-                    console.log(`✅ ${api.name}: Es ${isMP4 ? 'MP4' : 'GIF'}`);
-                    stickerBuffer = data;
-                    apiUsed = `${api.name} (${isMP4 ? 'MP4' : 'GIF'})`;
+                // Primero verificar tipo de archivo
+                const fileType = await execAsync(`file --brief --mime-type "${tempFilePath}"`);
+                console.log(`📁 Tipo de archivo: ${fileType.stdout.trim()}`);
+                
+                // Comando ffmpeg para convertir a sticker animado
+                const ffmpegCommand = `ffmpeg -i "${tempFilePath}" -vcodec libwebp -filter:v fps=fps=15 -lossless 0 -compression_level 3 -qscale 70 -loop 0 -preset default -an -vsync 0 -s 512:512 "${tempStickerPath}" -y`;
+                
+                try {
+                    await execAsync(ffmpegCommand, { timeout: 20000 });
+                    console.log(`✅ ${api.name}: Conversión exitosa`);
+                    apiUsed = api.name;
                     break;
+                } catch (ffmpegError) {
+                    console.log(`❌ ${api.name}: Error en ffmpeg:`, ffmpegError.message);
+                    
+                    // Intentar comando más simple
+                    const simpleCommand = `ffmpeg -i "${tempFilePath}" -vcodec libwebp -loop 0 -s 512:512 "${tempStickerPath}" -y`;
+                    try {
+                        await execAsync(simpleCommand, { timeout: 15000 });
+                        console.log(`✅ ${api.name}: Conversión simple exitosa`);
+                        apiUsed = api.name;
+                        break;
+                    } catch (simpleError) {
+                        console.log(`❌ ${api.name}: Conversión simple también falló`);
+                        continue;
+                    }
                 }
-                
-                // Verificar si es PNG/JPEG
-                const isPNG = firstBytes.slice(0, 8).toString('hex') === '89504e470d0a1a0a';
-                const isJPEG = firstBytes.slice(0, 3).toString('hex') === 'ffd8ff';
-                
-                if (isPNG || isJPEG) {
-                    console.log(`✅ ${api.name}: Es ${isPNG ? 'PNG' : 'JPEG'}`);
-                    stickerBuffer = data;
-                    apiUsed = `${api.name} (${isPNG ? 'PNG' : 'JPEG'})`;
-                    break;
-                }
-                
-                // Si llegamos aquí, intentar usar los datos tal cual
-                console.log(`⚠️ ${api.name}: Formato no identificado, usando datos crudos`);
-                stickerBuffer = data;
-                apiUsed = `${api.name} (formato desconocido)`;
-                break;
                 
             } catch (apiError) {
                 console.log(`❌ ${api.name} falló:`, apiError.message);
@@ -158,15 +133,27 @@ let handler = async (m, { conn, text, usedPrefix, command }) => {
             }
         }
 
-        if (!stickerBuffer) {
-            throw new Error('Todas las APIs fallaron');
+        if (!apiUsed || !fs.existsSync(tempStickerPath)) {
+            throw new Error('No se pudo obtener o convertir el sticker');
         }
 
         await m.react('✅️');
 
-        console.log(`🎨 Enviando sticker animado desde: ${apiUsed}`);
+        console.log(`🎨 Enviando sticker animado desde: ${apiUsed} (${isAlreadyWebP ? 'WEBP directo' : 'convertido'})`);
         
-        // Enviar sticker con metadata
+        // Leer sticker convertido
+        const stickerBuffer = fs.readFileSync(tempStickerPath);
+        
+        // Verificar que sea WEBP válido
+        const firstBytes = stickerBuffer.slice(0, 12);
+        const isValidWebP = firstBytes.slice(0, 4).toString() === 'RIFF' && 
+                           firstBytes.slice(8, 12).toString() === 'WEBP';
+        
+        if (!isValidWebP) {
+            throw new Error('El archivo final no es WEBP válido');
+        }
+        
+        // Enviar sticker
         await conn.sendMessage(m.chat, {
             sticker: stickerBuffer,
             contextInfo: {
@@ -182,21 +169,39 @@ let handler = async (m, { conn, text, usedPrefix, command }) => {
             }
         }, { quoted: m });
 
+        // Limpiar archivos temporales después de 10 segundos
+        setTimeout(() => {
+            try {
+                if (tempFilePath && fs.existsSync(tempFilePath)) fs.unlinkSync(tempFilePath);
+                if (tempStickerPath && fs.existsSync(tempStickerPath)) fs.unlinkSync(tempStickerPath);
+            } catch (e) {}
+        }, 10000);
+
     } catch (error) {
         console.error('❌ Error en brat2:', error);
+        
+        // Limpiar archivos temporales en caso de error
+        try {
+            if (tempFilePath && fs.existsSync(tempFilePath)) fs.unlinkSync(tempFilePath);
+            if (tempStickerPath && fs.existsSync(tempStickerPath)) fs.unlinkSync(tempStickerPath);
+        } catch (cleanError) {}
         
         await m.react('❌');
         
         let errorMessage = '> `❌ ERROR ENCONTRADO`\n\n';
         
-        if (error.message.includes('Todas las APIs fallaron')) {
+        if (error.message.includes('No se pudo obtener')) {
             errorMessage += '> `📝 Todos los servicios están temporalmente no disponibles. Intenta más tarde.`';
+        } else if (error.message.includes('WEBP válido')) {
+            errorMessage += '> `📝 Error al procesar el archivo. Intenta con otro texto.`';
         } else if (error.code === 'ECONNABORTED') {
             errorMessage += '> `⏰ Tiempo de espera agotado. Intenta de nuevo.`';
         } else if (error.response) {
             errorMessage += '> `📝 Error en la API: ' + error.response.status + '`';
         } else if (error.request) {
             errorMessage += '> `📝 No se pudo conectar con el servicio.`';
+        } else if (error.message.includes('ffmpeg')) {
+            errorMessage += '> `📝 Error al convertir el video a sticker. Verifica que ffmpeg esté instalado.`';
         } else {
             errorMessage += '> `📝 ' + error.message + '`';
         }
