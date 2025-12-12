@@ -83,7 +83,7 @@ let handler = async (m, { conn, participants }) => {
 };
 
 // Indicamos que este handler solo funciona en grupos
-handler.group = true;
+handler.group = true
 
 // No necesita un comando, se activa por un evento
 export default handler
