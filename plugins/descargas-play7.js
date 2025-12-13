@@ -29,6 +29,8 @@ let handler = async (m, { conn, text, usedPrefix, command }) => {
       caption: info
     }, { quoted: m })
 
+// play11 fixeado por ZzawX
+
     if (command === 'play11') {
       try {
         const result = await fetch(`https://fgsi.dpdns.org/api/downloader/youtube/v2?apikey=fgsiapi-335898e9-6d&url=${video.url}&type=mp4`).then(r => r.json())
