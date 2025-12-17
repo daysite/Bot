@@ -60,7 +60,7 @@ let handler = async (m, { conn, usedPrefix: _p }) => {
       }
     }
 
-    menuText += `> *‐ ダ mᥲძᥱ ᑲᥡ ʟᴇᴏ*`
+    menuText += `> *‐ ダ mᥲძᥱ ᑲᥡ daniel*`
 
     await conn.sendMessage(m.chat, { react: { text: '❄️', key: m.key } })
 
@@ -70,15 +70,15 @@ let handler = async (m, { conn, usedPrefix: _p }) => {
       {
         name: 'cta_url',
         buttonParamsJson: JSON.stringify({ 
-          display_text: '☃️ ᴄᴀɴᴀʟ ᴏғɪᴄɪᴀʟ', 
-          url: 'https://whatsapp.com/channel/0029VbBvZH5LNSa4ovSSbQ2N' 
+          display_text: '☃️ GRUPO OFC', 
+          url: 'https://chat.whatsapp.com/B5qa7Gkt00F46fejTWifSB?mode=hqrc' 
         })
       },
       {
         name: 'cta_url',
         buttonParamsJson: JSON.stringify({ 
-          display_text: '💻 ʜᴏsᴛɪɴɢ-ᴏғɪᴄɪᴀʟ', 
-          url: 'https://dash.quintillisas.com' 
+          display_text: '💻 PAGINA DEL CREADOR', 
+          url: 'https://es.pornhub.com/' 
         })
       }
     ]
@@ -114,7 +114,7 @@ let handler = async (m, { conn, usedPrefix: _p }) => {
   } catch (e) {
     console.error('❌ Error en el menú:', e)
     await conn.sendMessage(m.chat, {
-      text: `🍙 *ITSUNI MENÚ BÁSICO*\n\n• ${_p}menu - Menú principal\n• ${_p}ping - Estado del bot\n• ${_p}prefijos - Ver prefijos\n\n⚠️ *Error:* ${e.message}`
+      text: `🍙 *S3X MENÚ BÁSICO*\n\n• ${_p}menu - Menú principal\n• ${_p}ping - Estado del bot\n• ${_p}prefijos - Ver prefijos\n\n⚠️ *Error:* ${e.message}`
     }, { quoted: m })
   }
 }
@@ -122,7 +122,7 @@ let handler = async (m, { conn, usedPrefix: _p }) => {
 // Quoted especial con mini-thumbnail
 async function makeFkontak() {
   try {
-    const res = await fetch('https://cdn.russellxz.click/64bba973.jpg')
+    const res = await fetch('https://files.catbox.moe/wl6zd2.jpg')
     const thumb2 = Buffer.from(await res.arrayBuffer())
     return {
       key: { participants: '0@s.whatsapp.net', remoteJid: 'status@broadcast', fromMe: false, id: 'Halo' },
