@@ -4,9 +4,9 @@ let handler = async (m, { conn }) => {
   try {
     await conn.sendMessage(m.chat, { react: { text: '👑', key: m.key } })
 
-    const menuText = `> *@Hola Soy Leo Creador De Itsuki Nakano La Bot Que Estas Usando*\n\n> sᴇʟᴇᴄɪᴏɴᴀ ᴜɴ ᴍᴇᴛᴏᴅᴏ ᴘᴀʀᴀ ᴄᴏᴍᴜɴɪᴄᴀʀᴛᴇ ᴄᴏɴᴍɪɢᴏ 🧃:`
+    const menuText = `> *@Hola Soy Daniel Creador De S3x Legal Bot La Bot Que Estas Usando*\n\n> sᴇʟᴇᴄɪᴏɴᴀ ᴜɴ ᴍᴇᴛᴏᴅᴏ ᴘᴀʀᴀ ᴄᴏᴍᴜɴɪᴄᴀʀᴛᴇ ᴄᴏɴᴍɪɢᴏ 🧃:`
 
-    const imageUrl = 'https://cdn.russellxz.click/892b3d23.jpg'
+    const imageUrl = 'https://files.catbox.moe/n4npwx.jpg'
 
     const nativeButtons = [
       {
