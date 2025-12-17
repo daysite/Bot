@@ -49,7 +49,7 @@ let handler = async (m, { conn, args }) => {
         ''
       ]
       const list = changed.slice(0, 10).map(f => `> ⓘ ${f}`).join('\n') || '> ⓘ *Todos los archivos actualizados*'
-      response = `${banner.join('\n')}\n${list}\n\n> ⓘ *¡Itsuki está lista!*`
+      response = `${banner.join('\n')}\n${list}\n\n> ⓘ *¡Bot está lista!*`
       await m.react('✅')
     }
 
