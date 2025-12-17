@@ -159,8 +159,8 @@ let handler = async (m, { conn, text, usedPrefix, command }) => {
             contextInfo: {
                 mentionedJid: [m.sender],
                 externalAdReply: {
-                    title: `𝐈𝐭𝐬𝐮𝐤𝐢𝐁𝐨𝐭-𝐌𝐃`,
-                    body: `𝗦𝗼𝗹𝗶𝗰𝗶𝘁𝗮𝗱𝗼 𝗽𝗼𝗿: ${username}\n𝗖𝗿𝗲𝗮𝗱𝗼𝗿: 𝗟𝗲𝗼𝗗𝗲𝘃`,
+                    title: `S3X LEGAL BOT`,
+                    body: `𝗦𝗼𝗹𝗶𝗰𝗶𝘁𝗮𝗱𝗼 𝗽𝗼𝗿: ${username}\n𝗖𝗿𝗲𝗮𝗱𝗼𝗿: Daniel`,
                     thumbnailUrl: 'https://files.catbox.moe/yxcu1g.png',
                     sourceUrl: 'https://whatsapp.com/channel/0029Va9VhS8J5+50254766704',
                     mediaType: 1,
