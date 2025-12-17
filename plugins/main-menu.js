@@ -21,12 +21,12 @@ let handler = async (m, { conn, usedPrefix: _p }) => {
 
  ִ \`I N F O - B O T\` ! ୧ ֹ 
    
-> ੭੭﹙❐﹚ \`bot :\` *ItsukiV3*
+> ੭੭﹙❐﹚ \`bot :\` *S3X LEGAL BOT*
 > ੭੭﹙❐﹚ \`Ping :\` *${speed} ms*
 > ੭੭﹙❐﹚ \`Uptime :\` *${await getUptime()}*
 > ੭੭﹙❐﹚ \`RAM :\` *${(process.memoryUsage().rss / 1024 / 1024).toFixed(2)}* MB
 > ੭੭﹙❐﹚ \`Plugins :\` *${help.length}*
-> ੭੭﹙❐﹚ \`Owner :\` *@leoDev*
+> ੭੭﹙❐﹚ \`Owner :\` *@Danizffx*
 > ੭੭﹙❐﹚ \`Mode :\` *${global.opts['self'] ? 'Private' : 'Public'}*
 
 `
