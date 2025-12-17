@@ -6,10 +6,10 @@ import moment from 'moment-timezone'
 var handler = m => m
 handler.all = async function (m) { 
 global.canalIdM = [
-  "120363404434164076@newsletter",
-  "120363403726798403@newsletter",
-  "120363425526390282@newsletter",
-  "120363404434164076@newsletter"
+  "120363401360971612@newsletter",
+  "120363401360971612@newsletter",
+  "120363401360971612@newsletter",
+  "120363401360971612@newsletter"
 ]
 
 global.canalNombreM = [
